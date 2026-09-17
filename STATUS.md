@@ -2,7 +2,7 @@
 
 State: buildable local prototype, awaiting parent review.
 
-Commit: see `git rev-parse HEAD` after commit.
+Commit: pending the lifecycle repair commit.
 
 Artifact: `apple-fm.zsh` (source directly; no installer and no `.zshrc` mutation).
 
@@ -25,8 +25,9 @@ Checks run:
 * `zsh -n apple-fm.zsh` passed.
 * `/usr/bin/fm respond --help` inspected on macOS 27 build supplied by parent; stdin, `--model system`, `--no-stream`, `--greedy`, and `--instructions` are supported.
 * Live on-device smoke through stdin completed: `printf` prefix request returned a single-line suffix (`%s`).
-* PTY smoke script `pty-smoke.exp` exercised source/enable, explicit trigger, Tab, and Ctrl-C cleanup. Terminal output is noisy under this desktop PTY, so visible suggestion text and model wording were not treated as a quality gate.
+* `zsh -n apple-fm.zsh` passes after the lifecycle repair.
+* A real `zsh -dfi` PTY sourced and enabled the repaired plugin successfully.
 
-Limitations: only an end-of-line single command is supported; output is deliberately rejected when multiline or containing terminal control bytes. The CLI response is request-scoped and stale state is discarded. Autosuggestion key conflicts depend on shell load order and should be checked alongside any existing plugin.
+Limitations: only an end-of-line single command is supported; output is deliberately rejected when multiline or containing terminal control bytes. Requests are generation-bound to the prompt state, cancel their bridge child on edits, Escape, replacement, disable, and timeout, and are capped at 15 seconds. The Swift backend is deferred; this is CLI-only. The existing PTY harness is a liveness check and still needs deterministic fixture assertions for leading-space fidelity, stale/dismissal suppression, and binding restoration before parent review can call the prototype ready.
 
 Owned background processes: request and debounce children are tracked and killed when superseded or disabled. No persistent process, server, login item, or watcher is left running.
