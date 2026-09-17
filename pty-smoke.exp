@@ -1,36 +1,40 @@
 #!/usr/bin/expect -f
 set timeout 12
 set here [file dirname [file normalize [info script]]]
+set env(TERM) xterm-256color
+expect_after timeout {error "PTY assertion timed out"}
 spawn zsh -dfi
 expect "%"
-send -- "PS1='PROOF>'; bindkey -e; APPLE_FM_COMMAND='$here/fixture-fm'; source '$here/apple-fm.zsh'; apple-fm-enable\r"
+send -- "PS1='PROOF>'; bindkey -e; APPLE_FM_COMMAND='$here/fixture-fm'; APPLE_FM_DEBOUNCE=0.1; source '$here/apple-fm.zsh'\r"
 expect "PROOF>"
-send -- "bindkey -M emacs '^I'; bindkey -M emacs '^X^F'\r"
-expect "apple-fm-tab"
-expect "fm-suggest"
-send -- {function proof-buffer { zle -M -- "BUFFER:$BUFFER" }; zle -N proof-buffer; bindkey -M emacs '^X^B' proof-buffer\r}
+send -- {saved=$(bindkey -M emacs '^I'; bindkey -M emacs '^['; bindkey -M emacs '^X^F'); function proof-buffer { zle -M -- "STATE:<${BUFFER}>:<${_APPLE_FM_SUGGESTION}>" }; zle -N proof-buffer; bindkey -M emacs '^X^B' proof-buffer; apple-fm-enable; print SETUP_DONE}
+send -- "\r"
+expect "\r\nSETUP_DONE\r\n"
 expect "PROOF>"
 send -- "alpha"
 send -- "\030\006"
 expect " suffix"
 send -- "\030\002"
-expect "BUFFER:alpha"
+expect "STATE:<alpha>:< suffix>"
 send -- "\t"
 send -- "\030\002"
-expect "BUFFER:alpha suffix"
-send -- "\033"
+expect "STATE:<alpha suffix>:<>"
+send -- "\003"
 expect "PROOF>"
 send -- "SLOW"
 send -- "\030\006"
 after 100
 send -- "\033"
-after 1300
-send -- "x"
+after 1500
+send -- "\030\002"
+expect "STATE:<SLOW>:<>"
 send -- "\003"
 expect "PROOF>"
-send -- {apple-fm-disable; bindkey -M emacs '^I'; bindkey -M emacs '^['; bindkey -M emacs '^X^F'\r}
-expect "expand-or-complete"
-expect "send-break"
-expect "undefined-key"
+send -- {apple-fm-disable; [[ "$saved" == "$(bindkey -M emacs '^I'; bindkey -M emacs '^['; bindkey -M emacs '^X^F')" ]] && print RESTORED; print -u2 STDERR_ALIVE}
+send -- "\r"
+expect "\r\nRESTORED\r\n"
+expect "STDERR_ALIVE"
+expect "PROOF>"
 send -- "exit\r"
 expect eof
+puts "PASS: preview, whitespace, Tab buffer insertion without execution, dismissal, binding restoration, stderr preservation"
