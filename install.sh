@@ -80,11 +80,12 @@ else
 fi
 shell_quote() { printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"; }
 quoted_install=$(shell_quote "$install_dir/apple-fm.zsh")
-quoted_dir=$(shell_quote "$install_dir")
+quoted_installer=$(shell_quote "$install_dir/install.sh")
+quoted_version=$(shell_quote "$install_dir/VERSION")
 {
   cat "$tmp_dir/zshrc"
   printf '\n%s\n' "$start"
-  printf 'if [ -r %s ]; then\n  source %s\n  apple-fm-enable\nfi\napple-fm-update() { %s/install.sh --update "$@"; }\napple-fm-version() { cat %s/VERSION; }\n%s\n' "$quoted_install" "$quoted_install" "$quoted_dir" "$quoted_dir/VERSION" "$end"
+  printf 'if [ -r %s ]; then\n  source %s\n  apple-fm-enable\nfi\napple-fm-update() { %s --update "$@"; }\napple-fm-version() { cat %s; }\n%s\n' "$quoted_install" "$quoted_install" "$quoted_installer" "$quoted_version" "$end"
 } > "$tmp_dir/zshrc.new"
 if [ -e "$zshrc" ]; then
   cat "$tmp_dir/zshrc.new" > "$zshrc"
