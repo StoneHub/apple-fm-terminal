@@ -1,0 +1,4 @@
+#!/bin/zsh
+input=$(cat)
+[[ $input == *SLOW* ]] && sleep 1
+print -r -- ' suffix'
