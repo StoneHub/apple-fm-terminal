@@ -2,6 +2,10 @@
 
 This is a small zle plugin for macOS 27. It asks the on-device Apple model for a single-line suffix, renders that suffix after the prompt, and inserts it into `LBUFFER` only when Tab is pressed. Enter remains the separate execution action.
 
+![Apple FM suggesting a shell command suffix in a zsh terminal](docs/images/autocomplete.png)
+
+Live on-device suggestion in VS Code’s integrated zsh terminal. Gray text is the suggested suffix; Tab accepts it without executing the command.
+
 ## Try it
 
 For an isolated first trial, run `zsh -f` in Terminal, then:
