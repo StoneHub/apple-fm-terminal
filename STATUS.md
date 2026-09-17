@@ -29,3 +29,32 @@ On macOS 27.0 (26A428), parent ran a real interactive zsh PTY:
 End-of-buffer single-line completion only; CLI backend only. Swift integration is deferred. Other autosuggestion plugins were not exercised; use the isolated shell for the first trial. The CLI result passes through a private transient file that is removed on response/cancellation; prompts and shell history are not saved. Forced shell termination can interrupt cleanup. Exact suggestion quality and normal Terminal.app visual polish remain Monroe's trial.
 
 All parent-owned PTY sessions are closed. No server, login item, watcher, or persistent inference process is required.
+
+## Local release checkpoint
+
+Commit: `ebb6d30` (with the release packaging commit `3dfbc87` immediately before it).
+
+Build local release assets with `./package-release.sh [dist-directory]`. This emits
+`apple-fm-terminal-0.1.0.tar.gz`, the stable-download alias
+`apple-fm-terminal.tar.gz`, `install.sh`, and a fresh `SHA256SUMS` manifest. The
+packager refuses tracked worktree changes; publishing these assets remains a
+separate parent-owned step.
+
+Install or update on a supported Mac with `/usr/bin/fm`:
+
+```zsh
+curl -fsSL https://github.com/StoneHub/apple-fm-terminal/releases/latest/download/install.sh | sh
+```
+
+The installer uses no sudo, installs to `~/.local/share/apple-fm-terminal`, and
+adds an idempotent marked block to `${ZDOTDIR:-$HOME}/.zshrc`. New shells provide
+`apple-fm-update` and `apple-fm-version`. A local artifact trial uses
+`HOME=/tmp/test-home ZDOTDIR=/tmp/test-home/zsh APPLE_FM_INSTALL_DIR=/tmp/test-home/data/apple-fm-terminal ./install.sh --archive ... --checksums ...`.
+To remove the installation, delete only the marked block from the selected zshrc
+and remove `~/.local/share/apple-fm-terminal` after closing shells using it.
+
+Checks run: `sh -n install.sh package-release.sh`, `zsh -n apple-fm.zsh`,
+`git diff --check`, package generation, checksum-verified temporary-home install,
+second-install idempotence, zshrc parse, and a temporary-home `apple-fm-version`
+read. The temporary-home path included an apostrophe to exercise shell quoting.
+No background processes remain.
