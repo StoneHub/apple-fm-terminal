@@ -1,0 +1,17 @@
+#!/usr/bin/expect -f
+set timeout 8
+log_user 1
+spawn zsh -dfi
+expect "%"
+send -- "PS1='PROMPT>'; source [pwd]/apple-fm.zsh; bindkey -e; apple-fm-enable; print READY\r"
+expect "READY"
+expect "%"
+send "printf "
+send "\030\006"
+sleep 2
+send "\t"
+sleep 0.3
+send "\003"
+expect "PROMPT>"
+send "exit\r"
+expect eof
