@@ -31,6 +31,22 @@ send -- "\030\002"
 expect "STATE:<SLOW>:<>"
 send -- "\003"
 expect "PROOF>"
+send -- {sleep 60 & bg=$!; print BG_STARTED}
+send -- "\r"
+expect "\r\nBG_STARTED\r\n"
+expect "PROOF>"
+send -- "SLOW"
+send -- "\030\006"
+after 200
+send -- "\033"
+after 200
+# Clear with Ctrl-U, not Ctrl-C, which would interrupt the request itself and hide whether cancellation stopped it.
+send -- "\025"
+# Results are built from variables so the echoed command line cannot match the expected text.
+send -- {fm=gone; pgrep -f fixture-fm >/dev/null && fm=running; bg_state=alive; kill -0 $bg 2>/dev/null || bg_state=killed; kill $bg 2>/dev/null; print "CANCEL:fm=$fm:bg=$bg_state:END"}
+send -- "\r"
+expect "CANCEL:fm=gone:bg=alive:END"
+expect "PROOF>"
 send -- {apple-fm-disable; [[ "$saved" == "$(bindkey -M emacs '^I'; bindkey -M emacs '^['; bindkey -M emacs '^X^F')" ]] && print RESTORED; print -u2 STDERR_ALIVE}
 send -- "\r"
 expect "\r\nRESTORED\r\n"
@@ -38,4 +54,4 @@ expect "STDERR_ALIVE"
 expect "PROOF>"
 send -- "exit\r"
 expect eof
-puts "PASS: preview, whitespace, Tab buffer insertion without execution, dismissal, binding restoration, stderr preservation"
+puts "PASS: preview, whitespace, Tab buffer insertion without execution, dismissal, cancellation stops the model and spares background jobs, binding restoration, stderr preservation"

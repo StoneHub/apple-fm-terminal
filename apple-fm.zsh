@@ -1,5 +1,5 @@
 # Apple FM completion: asynchronous, request-scoped, and non-executing.
-zmodload zsh/zselect
+zmodload zsh/zselect zsh/system
 typeset -g APPLE_FM_DEBOUNCE=${APPLE_FM_DEBOUNCE:-0.35} APPLE_FM_TIMEOUT=${APPLE_FM_TIMEOUT:-15}
 typeset -g APPLE_FM_CONTEXT_CAP=${APPLE_FM_CONTEXT_CAP:-6000} APPLE_FM_TRIGGER=${APPLE_FM_TRIGGER:-'^X^F'}
 typeset -g APPLE_FM_COMMAND=${APPLE_FM_COMMAND:-/usr/bin/fm} _APPLE_FM_ENABLED=${_APPLE_FM_ENABLED:-0}
@@ -11,6 +11,8 @@ typeset -g _APPLE_FM_TIMER_FD=${_APPLE_FM_TIMER_FD:--1} _APPLE_FM_TIMER_PID=${_A
 typeset -g _APPLE_FM_TIMEOUT_FD=${_APPLE_FM_TIMEOUT_FD:--1} _APPLE_FM_TIMEOUT_PID=${_APPLE_FM_TIMEOUT_PID:--1}
 typeset -g _APPLE_FM_SUGGESTION=${_APPLE_FM_SUGGESTION:-} _APPLE_FM_REGION_SAVED=${_APPLE_FM_REGION_SAVED:-0}
 typeset -ga _APPLE_FM_SAVED_REGION
+# zsh does not set $! for <(...), so each bridge prints its own PID first and the caller reads it here.
+_apple_fm_bridge_pid() { local pid; IFS= read -r -u "$1" pid && [[ $pid == <-> ]] || pid=-1; typeset -g "$2=$pid"; }
 _apple_fm_state() { local sep=$'\x1f'; print -rn -- "${PWD}${sep}${LBUFFER}${sep}${RBUFFER}${sep}${CURSOR}"; }
 _apple_fm_message() { zle -M -- "$1" 2>/dev/null; }
 _apple_fm_clear() {
@@ -70,10 +72,10 @@ _apple_fm_request() {
   prompt=$'Shell: zsh\nWorking directory: '${PWD}$'\nCommand prefix:\n'${before}$'\n\nReturn the suffix only.'
   file=$(mktemp -t apple-fm-result.XXXXXX) || { _apple_fm_message 'Apple FM could not create its request result.'; return; }
   _APPLE_FM_FILE=$file; _APPLE_FM_REQUEST_STATE=$state; _APPLE_FM_REQUEST_GEN=$_APPLE_FM_GENERATION; _APPLE_FM_EXPLICIT=$explicit
-  exec {fd}< <((child=''; trap '[[ -n $child ]] && kill -KILL "$child" 2>/dev/null; wait "$child" 2>/dev/null; exit 143' HUP INT TERM; print -rn -- "$prompt" | "$APPLE_FM_COMMAND" respond --model system --no-stream --greedy --instructions "$instructions" >| "$file" 2>/dev/null & child=$!; wait "$child"; print -r -- $?))
-  _APPLE_FM_FD=$fd; _APPLE_FM_PID=$!; zle -F -w "$fd" _apple_fm_response
-  exec {timeout_fd}< <(integer ticks=$(( APPLE_FM_TIMEOUT * 100 )); zselect -t $ticks; print -r -- "$_APPLE_FM_REQUEST_GEN")
-  _APPLE_FM_TIMEOUT_FD=$timeout_fd; _APPLE_FM_TIMEOUT_PID=$!; zle -F -w "$timeout_fd" _apple_fm_timeout
+  exec {fd}< <((print -r -- ${sysparams[pid]}; child=''; trap '[[ -n $child ]] && kill -KILL "$child" 2>/dev/null; wait "$child" 2>/dev/null; exit 143' HUP INT TERM; print -rn -- "$prompt" | "$APPLE_FM_COMMAND" respond --model system --no-stream --greedy --instructions "$instructions" >| "$file" 2>/dev/null & child=$!; wait "$child"; print -r -- $?))
+  _APPLE_FM_FD=$fd; _apple_fm_bridge_pid $fd _APPLE_FM_PID; zle -F -w "$fd" _apple_fm_response
+  exec {timeout_fd}< <(print -r -- ${sysparams[pid]}; integer ticks=$(( APPLE_FM_TIMEOUT * 100 )); zselect -t $ticks; print -r -- "$_APPLE_FM_REQUEST_GEN")
+  _APPLE_FM_TIMEOUT_FD=$timeout_fd; _apple_fm_bridge_pid $timeout_fd _APPLE_FM_TIMEOUT_PID; zle -F -w "$timeout_fd" _apple_fm_timeout
 }
 _apple_fm_debounce() {
   local fd=$1 gen state; IFS= read -r -u "$fd" gen || true; _apple_fm_close_timer
@@ -83,8 +85,8 @@ _apple_fm_debounce() {
 _apple_fm_schedule() {
   local state=$1 fd
   [[ $state == $_APPLE_FM_DISMISSED || $CURSOR -ne ${#LBUFFER} || -n $RBUFFER || -z $LBUFFER ]] && return
-  _apple_fm_close_timer; exec {fd}< <(integer ticks=$(( APPLE_FM_DEBOUNCE * 100 )); zselect -t $ticks; print -r -- "$_APPLE_FM_GENERATION")
-  _APPLE_FM_TIMER_FD=$fd; _APPLE_FM_TIMER_PID=$!; zle -F -w "$fd" _apple_fm_debounce
+  _apple_fm_close_timer; exec {fd}< <(print -r -- ${sysparams[pid]}; integer ticks=$(( APPLE_FM_DEBOUNCE * 100 )); zselect -t $ticks; print -r -- "$_APPLE_FM_GENERATION")
+  _APPLE_FM_TIMER_FD=$fd; _apple_fm_bridge_pid $fd _APPLE_FM_TIMER_PID; zle -F -w "$fd" _apple_fm_debounce
 }
 _apple_fm_pre_redraw() {
   (( _APPLE_FM_ENABLED )) || return; local state=$(_apple_fm_state)
