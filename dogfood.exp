@@ -1,0 +1,57 @@
+#!/usr/bin/expect -f
+# Type each command prefix into a real zsh with this plugin and the real model, then print what Tab would insert.
+# Usage: ./dogfood.exp ['git sta' ...]; with no arguments, runs every line of dogfood-cases.txt. APPLE_FM_COMMAND overrides /usr/bin/fm.
+set timeout 20
+set here [file dirname [file normalize [info script]]]
+set env(TERM) xterm-256color
+set stty_init "columns 500 rows 40"
+log_user 0
+set prefixes $argv
+if {[llength $prefixes] == 0} {
+  set handle [open "$here/dogfood-cases.txt"]
+  foreach line [split [read $handle] "\n"] { if {[string trim $line] ne "" && [string index $line 0] ne "#"} { lappend prefixes $line } }
+  close $handle
+}
+spawn zsh -dfi
+# Declared after spawn so it binds to the shell, not to this script's own stdin.
+expect_after timeout {puts "FAIL: shell did not respond"; exit 1}
+expect "%"
+send -- "PS1='DOGFOOD>'; bindkey -e; source '$here/apple-fm.zsh'\r"
+expect "DOGFOOD>"
+send -- {integer _dogfood_seq=0; function dogfood-state { (( ++_dogfood_seq )); zle -M -- "STATE${_dogfood_seq}:<${_APPLE_FM_FD}>:<${BUFFER}>:<${_APPLE_FM_SUGGESTION}>:END" }; zle -N dogfood-state; bindkey -M emacs '^X^B' dogfood-state; apple-fm-enable; print SETUP_DONE}
+send -- "\r"
+expect "\r\nSETUP_DONE\r\n"
+expect "DOGFOOD>"
+# Each poll bumps a counter in zsh, so only the reply to this poll is read and stale redraws are skipped. The request fd is -1 once no request is in flight.
+set seq 0
+proc poll {} {
+  global seq
+  incr seq
+  send -- "\030\002"
+  expect -re "STATE$seq:<(-?\[0-9\]+)>:<(.*?)>:<(.*?)>:END"
+  return [list $expect_out(1,string) $expect_out(2,string) $expect_out(3,string)]
+}
+foreach prefix $prefixes {
+  send -- $prefix
+  after 50
+  set started [clock milliseconds]
+  send -- "\030\006"
+  set result "timeout"
+  while {[clock milliseconds] - $started < 17000} {
+    after 100
+    lassign [poll] request buffer suggestion
+    if {$request == -1} {
+      set result [expr {$suggestion eq "" ? "empty" : "ok"}]
+      break
+    }
+  }
+  set ms [expr {[clock milliseconds] - $started}]
+  # Accept with Tab and read the buffer back, proving the real widget inserts it without running the command.
+  send -- "\t"
+  lassign [poll] request buffer
+  puts [format "%-6s %6dms  %-32s -> %s" $result $ms "<$prefix>" "<$buffer>"]
+  send -- "\003"
+  expect "DOGFOOD>"
+}
+send -- "exit\r"
+expect eof
