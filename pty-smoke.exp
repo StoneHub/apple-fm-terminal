@@ -2,8 +2,9 @@
 set timeout 12
 set here [file dirname [file normalize [info script]]]
 set env(TERM) xterm-256color
-expect_after timeout {error "PTY assertion timed out"}
 spawn zsh -dfi
+# Declared after spawn so it binds to the shell; before spawn it bound to stdin and timeouts never failed.
+expect_after timeout {error "PTY assertion timed out"}
 expect "%"
 send -- "PS1='PROOF>'; bindkey -e; APPLE_FM_COMMAND='$here/fixture-fm'; APPLE_FM_DEBOUNCE=0.1; source '$here/apple-fm.zsh'\r"
 expect "PROOF>"
