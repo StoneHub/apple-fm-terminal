@@ -44,6 +44,14 @@ send -- "\030\002"
 expect "STATE:<FAIL>:<>:<exit:3>"
 send -- "\003"
 expect "PROOF>"
+# A reply that doesn't restate the typed text is dropped.
+send -- "OTHER"
+send -- "\030\006"
+after 500
+send -- "\030\002"
+expect "STATE:<OTHER>:<>:<mismatch>"
+send -- "\003"
+expect "PROOF>"
 send -- "SLOW"
 send -- "\030\006"
 after 100
@@ -76,4 +84,4 @@ expect "STDERR_ALIVE"
 expect "PROOF>"
 send -- "exit\r"
 expect eof
-puts "PASS: preview, whitespace, Tab buffer insertion without execution, automatic suggestion, unsafe and failed replies, dismissal, cancellation stops the model and spares background jobs, binding restoration, stderr preservation"
+puts "PASS: preview, whitespace, Tab buffer insertion without execution, automatic suggestion, unsafe, failed and mismatched replies, dismissal, cancellation stops the model and spares background jobs, binding restoration, stderr preservation"

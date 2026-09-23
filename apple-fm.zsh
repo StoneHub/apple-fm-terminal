@@ -10,8 +10,8 @@ typeset -g _APPLE_FM_FD=${_APPLE_FM_FD:--1} _APPLE_FM_PID=${_APPLE_FM_PID:--1} _
 typeset -g _APPLE_FM_TIMER_FD=${_APPLE_FM_TIMER_FD:--1} _APPLE_FM_TIMER_PID=${_APPLE_FM_TIMER_PID:--1}
 typeset -g _APPLE_FM_TIMEOUT_FD=${_APPLE_FM_TIMEOUT_FD:--1} _APPLE_FM_TIMEOUT_PID=${_APPLE_FM_TIMEOUT_PID:--1}
 typeset -g _APPLE_FM_SUGGESTION=${_APPLE_FM_SUGGESTION:-} _APPLE_FM_REGION_SAVED=${_APPLE_FM_REGION_SAVED:-0}
-# Last request result for harnesses and debugging: pending, ok, empty, exit:N, unsafe, timeout, stale, cancelled or no-cli.
-typeset -g _APPLE_FM_LAST_OUTCOME=${_APPLE_FM_LAST_OUTCOME:-}
+# Last request result for harnesses and debugging: pending, ok, empty, exit:N, unsafe, mismatch, timeout, stale, cancelled or no-cli.
+typeset -g _APPLE_FM_LAST_OUTCOME=${_APPLE_FM_LAST_OUTCOME:-} _APPLE_FM_REQUEST_BEFORE=${_APPLE_FM_REQUEST_BEFORE:-}
 typeset -ga _APPLE_FM_SAVED_REGION
 # zsh does not set $! for <(...), so each bridge prints its own PID first and the caller reads it here.
 _apple_fm_bridge_pid() { local pid; IFS= read -r -u "$1" pid && [[ $pid == <-> ]] || pid=-1; typeset -g "$2=$pid"; }
@@ -56,6 +56,10 @@ _apple_fm_response() {
   [[ $result_status != 0 ]] && _APPLE_FM_LAST_OUTCOME=exit:$result_status || _APPLE_FM_LAST_OUTCOME=empty
   if [[ $result_status != 0 || -z $response ]]; then (( explicit )) && _apple_fm_message 'Apple FM is unavailable or returned no completion.'; return; fi
   [[ $response != *$'\n'* && $response != *$'\r'* && $response != *[$'\x00'-$'\x1f'$'\x7f']* ]] || { _APPLE_FM_LAST_OUTCOME=unsafe; (( explicit )) && _apple_fm_message 'Apple FM returned an unsafe completion.'; return; }
+  # The model returns the whole line, so only a reply that starts with the typed text is shown, minus that text.
+  [[ $response == "$_APPLE_FM_REQUEST_BEFORE"* ]] || { _APPLE_FM_LAST_OUTCOME=mismatch; (( explicit )) && _apple_fm_message 'Apple FM returned a different command line.'; return; }
+  response=${response#"$_APPLE_FM_REQUEST_BEFORE"}
+  [[ -n $response ]] || { _APPLE_FM_LAST_OUTCOME=empty; return; }
   _APPLE_FM_LAST_OUTCOME=ok; _APPLE_FM_SUGGESTION=$response; _apple_fm_show
 }
 _apple_fm_timeout() {
@@ -71,10 +75,10 @@ _apple_fm_request() {
   [[ -x $APPLE_FM_COMMAND ]] || { _APPLE_FM_LAST_OUTCOME=no-cli; (( explicit )) && _apple_fm_message "Apple FM CLI is unavailable: ${APPLE_FM_COMMAND}"; return; }
   _apple_fm_close_request; _apple_fm_close_timeout; _apple_fm_clear; _APPLE_FM_LAST_OUTCOME=pending
   (( ${#before} > APPLE_FM_CONTEXT_CAP )) && before=${before[-APPLE_FM_CONTEXT_CAP,-1]}
-  instructions='Complete only the missing suffix of this zsh command line. Return only one single-line suffix, without explanation, code fences, repeated prefix, or execution instructions.'
-  prompt=$'Shell: zsh\nWorking directory: '${PWD}$'\nCommand prefix:\n'${before}$'\n\nReturn the suffix only.'
+  instructions='Complete the zsh command line the user is typing. The last word may be cut off; finish it. Return the whole completed command line on one line, starting with exactly the text typed so far, without explanation or code fences.'
+  prompt=$'Shell: zsh\nWorking directory: '${PWD}$'\nTyped so far:\n'${before}$'\n\nReturn the completed command line.'
   file=$(mktemp -t apple-fm-result.XXXXXX) || { _apple_fm_message 'Apple FM could not create its request result.'; return; }
-  _APPLE_FM_FILE=$file; _APPLE_FM_REQUEST_STATE=$state; _APPLE_FM_REQUEST_GEN=$_APPLE_FM_GENERATION; _APPLE_FM_EXPLICIT=$explicit
+  _APPLE_FM_FILE=$file; _APPLE_FM_REQUEST_BEFORE=$before; _APPLE_FM_REQUEST_STATE=$state; _APPLE_FM_REQUEST_GEN=$_APPLE_FM_GENERATION; _APPLE_FM_EXPLICIT=$explicit
   exec {fd}< <((print -r -- ${sysparams[pid]}; child=''; trap '[[ -n $child ]] && kill -KILL "$child" 2>/dev/null; wait "$child" 2>/dev/null; exit 143' HUP INT TERM; print -rn -- "$prompt" | "$APPLE_FM_COMMAND" respond --model system --no-stream --greedy --instructions "$instructions" >| "$file" 2>/dev/null & child=$!; wait "$child"; print -r -- $?))
   _APPLE_FM_FD=$fd; _apple_fm_bridge_pid $fd _APPLE_FM_PID; zle -F -w "$fd" _apple_fm_response
   exec {timeout_fd}< <(print -r -- ${sysparams[pid]}; integer ticks=$(( APPLE_FM_TIMEOUT * 100 )); zselect -t $ticks; print -r -- "$_APPLE_FM_REQUEST_GEN")
