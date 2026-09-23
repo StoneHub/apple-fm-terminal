@@ -1,4 +1,8 @@
 #!/bin/zsh
+# Fake fm for pty-smoke.exp: the typed text picks the behaviour.
 input=$(cat)
 [[ $input == *SLOW* ]] && sleep 1
+[[ $input == *HANG* ]] && exec sleep 30
+[[ $input == *FAIL* ]] && exit 3
+[[ $input == *MULTI* ]] && { print -r -- ' one'; print -r -- 'two'; exit 0; }
 print -r -- ' suffix'

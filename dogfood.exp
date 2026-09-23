@@ -16,19 +16,21 @@ spawn zsh -dfi
 # Declared after spawn so it binds to the shell, not to this script's own stdin.
 expect_after timeout {puts "FAIL: shell did not respond"; exit 1}
 expect "%"
+# Ctrl-C ends the shell, whose hang-up stops any model request still running.
+trap {send -- "\003"; send -- "exit\r"; exit 130} SIGINT
 send -- "PS1='DOGFOOD>'; bindkey -e; source '$here/apple-fm.zsh'\r"
 expect "DOGFOOD>"
-send -- {integer _dogfood_seq=0; function dogfood-state { (( ++_dogfood_seq )); zle -M -- "STATE${_dogfood_seq}:<${_APPLE_FM_FD}>:<${BUFFER}>:<${_APPLE_FM_SUGGESTION}>:END" }; zle -N dogfood-state; bindkey -M emacs '^X^B' dogfood-state; apple-fm-enable; print SETUP_DONE}
+send -- {integer _dogfood_seq=0; function dogfood-state { (( ++_dogfood_seq )); zle -M -- "STATE${_dogfood_seq}:<${_APPLE_FM_LAST_OUTCOME}>:<${BUFFER}>:<${_APPLE_FM_SUGGESTION}>:END" }; zle -N dogfood-state; bindkey -M emacs '^X^B' dogfood-state; apple-fm-enable; print SETUP_DONE}
 send -- "\r"
 expect "\r\nSETUP_DONE\r\n"
 expect "DOGFOOD>"
-# Each poll bumps a counter in zsh, so only the reply to this poll is read and stale redraws are skipped. The request fd is -1 once no request is in flight.
+# Each poll bumps a counter in zsh, so only the reply to this poll is read and stale redraws are skipped.
 set seq 0
 proc poll {} {
   global seq
   incr seq
   send -- "\030\002"
-  expect -re "STATE$seq:<(-?\[0-9\]+)>:<(.*?)>:<(.*?)>:END"
+  expect -re "STATE$seq:<(\[^>\]*)>:<(.*?)>:<(.*?)>:END"
   return [list $expect_out(1,string) $expect_out(2,string) $expect_out(3,string)]
 }
 foreach prefix $prefixes {
@@ -36,19 +38,19 @@ foreach prefix $prefixes {
   after 50
   set started [clock milliseconds]
   send -- "\030\006"
-  set result "timeout"
+  # The plugin records pending until the request ends with ok, empty, exit:N, unsafe, timeout or no-cli.
+  set result "no-reply"
+  set suggestion ""
   while {[clock milliseconds] - $started < 17000} {
     after 100
-    lassign [poll] request buffer suggestion
-    if {$request == -1} {
-      set result [expr {$suggestion eq "" ? "empty" : "ok"}]
-      break
-    }
+    lassign [poll] outcome buffer suggestion
+    if {$outcome ne "pending" && $outcome ne "cancelled"} { set result $outcome; break }
   }
   set ms [expr {[clock milliseconds] - $started}]
   # Accept with Tab and read the buffer back, proving the real widget inserts it without running the command.
-  send -- "\t"
-  lassign [poll] request buffer
+  # With no suggestion, Tab would run zsh completion instead, so it is skipped.
+  if {$suggestion ne ""} { send -- "\t" }
+  lassign [poll] outcome buffer
   puts [format "%-6s %6dms  %-32s -> %s" $result $ms "<$prefix>" "<$buffer>"]
   send -- "\003"
   expect "DOGFOOD>"

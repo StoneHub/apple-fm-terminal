@@ -10,6 +10,8 @@ typeset -g _APPLE_FM_FD=${_APPLE_FM_FD:--1} _APPLE_FM_PID=${_APPLE_FM_PID:--1} _
 typeset -g _APPLE_FM_TIMER_FD=${_APPLE_FM_TIMER_FD:--1} _APPLE_FM_TIMER_PID=${_APPLE_FM_TIMER_PID:--1}
 typeset -g _APPLE_FM_TIMEOUT_FD=${_APPLE_FM_TIMEOUT_FD:--1} _APPLE_FM_TIMEOUT_PID=${_APPLE_FM_TIMEOUT_PID:--1}
 typeset -g _APPLE_FM_SUGGESTION=${_APPLE_FM_SUGGESTION:-} _APPLE_FM_REGION_SAVED=${_APPLE_FM_REGION_SAVED:-0}
+# Last request result for harnesses and debugging: pending, ok, empty, exit:N, unsafe, timeout, stale, cancelled or no-cli.
+typeset -g _APPLE_FM_LAST_OUTCOME=${_APPLE_FM_LAST_OUTCOME:-}
 typeset -ga _APPLE_FM_SAVED_REGION
 # zsh does not set $! for <(...), so each bridge prints its own PID first and the caller reads it here.
 _apple_fm_bridge_pid() { local pid; IFS= read -r -u "$1" pid && [[ $pid == <-> ]] || pid=-1; typeset -g "$2=$pid"; }
@@ -35,7 +37,7 @@ _apple_fm_close_timeout() {
   if (( _APPLE_FM_TIMEOUT_FD >= 0 )); then zle -F "$_APPLE_FM_TIMEOUT_FD" 2>/dev/null; { exec {_APPLE_FM_TIMEOUT_FD}<&-; } 2>/dev/null; _APPLE_FM_TIMEOUT_FD=-1; fi
   if (( _APPLE_FM_TIMEOUT_PID > 0 )); then kill "$_APPLE_FM_TIMEOUT_PID" 2>/dev/null; _APPLE_FM_TIMEOUT_PID=-1; fi
 }
-_apple_fm_cancel() { (( ++_APPLE_FM_GENERATION )); _apple_fm_close_request; _apple_fm_close_timer; _apple_fm_close_timeout; _apple_fm_clear; }
+_apple_fm_cancel() { [[ $_APPLE_FM_LAST_OUTCOME == pending ]] && _APPLE_FM_LAST_OUTCOME=cancelled; (( ++_APPLE_FM_GENERATION )); _apple_fm_close_request; _apple_fm_close_timer; _apple_fm_close_timeout; _apple_fm_clear; }
 _apple_fm_show() {
   (( _APPLE_FM_REGION_SAVED )) || { _APPLE_FM_SAVED_REGION=("${region_highlight[@]}"); _APPLE_FM_REGION_SAVED=1; }
   POSTDISPLAY=$_APPLE_FM_SUGGESTION
@@ -46,27 +48,28 @@ _apple_fm_response() {
   local fd=$1 result_status response bytes state explicit
   IFS= read -r -u "$fd" result_status || result_status=125
   _apple_fm_close_timeout
-  [[ -f $_APPLE_FM_FILE ]] || { _apple_fm_close_request; return; }
+  [[ -f $_APPLE_FM_FILE ]] || { _APPLE_FM_LAST_OUTCOME=stale; _apple_fm_close_request; return; }
   bytes=$(wc -c < "$_APPLE_FM_FILE"); state=$(_apple_fm_state); explicit=$_APPLE_FM_EXPLICIT
-  if [[ $state != $_APPLE_FM_REQUEST_STATE || $_APPLE_FM_GENERATION -ne $_APPLE_FM_REQUEST_GEN || $state == $_APPLE_FM_DISMISSED ]]; then _apple_fm_close_request; return; fi
-  if (( bytes > 4096 )); then _apple_fm_close_request; (( explicit )) && _apple_fm_message 'Apple FM returned an unsafe completion.'; return; fi
+  if [[ $state != $_APPLE_FM_REQUEST_STATE || $_APPLE_FM_GENERATION -ne $_APPLE_FM_REQUEST_GEN || $state == $_APPLE_FM_DISMISSED ]]; then _APPLE_FM_LAST_OUTCOME=stale; _apple_fm_close_request; return; fi
+  if (( bytes > 4096 )); then _APPLE_FM_LAST_OUTCOME=unsafe; _apple_fm_close_request; (( explicit )) && _apple_fm_message 'Apple FM returned an unsafe completion.'; return; fi
   response=$(<"$_APPLE_FM_FILE"); _apple_fm_close_request preserve
+  [[ $result_status != 0 ]] && _APPLE_FM_LAST_OUTCOME=exit:$result_status || _APPLE_FM_LAST_OUTCOME=empty
   if [[ $result_status != 0 || -z $response ]]; then (( explicit )) && _apple_fm_message 'Apple FM is unavailable or returned no completion.'; return; fi
-  [[ $response != *$'\n'* && $response != *$'\r'* && $response != *[$'\x00'-$'\x1f'$'\x7f']* ]] || { (( explicit )) && _apple_fm_message 'Apple FM returned an unsafe completion.'; return; }
-  _APPLE_FM_SUGGESTION=$response; _apple_fm_show
+  [[ $response != *$'\n'* && $response != *$'\r'* && $response != *[$'\x00'-$'\x1f'$'\x7f']* ]] || { _APPLE_FM_LAST_OUTCOME=unsafe; (( explicit )) && _apple_fm_message 'Apple FM returned an unsafe completion.'; return; }
+  _APPLE_FM_LAST_OUTCOME=ok; _APPLE_FM_SUGGESTION=$response; _apple_fm_show
 }
 _apple_fm_timeout() {
   local fd=$1 generation explicit; IFS= read -r -u "$fd" generation || true
   [[ $generation == $_APPLE_FM_REQUEST_GEN ]] || return
-  explicit=$_APPLE_FM_EXPLICIT; _apple_fm_close_request; _apple_fm_close_timeout
+  _APPLE_FM_LAST_OUTCOME=timeout; explicit=$_APPLE_FM_EXPLICIT; _apple_fm_close_request; _apple_fm_close_timeout
   (( explicit )) && _apple_fm_message "Apple FM timed out after ${APPLE_FM_TIMEOUT}s."
 }
 _apple_fm_request() {
   local explicit=$1 state=$2 before=$LBUFFER prompt instructions file fd timeout_fd
   (( _APPLE_FM_ENABLED )) || return
   [[ $CURSOR -eq ${#LBUFFER} && -z $RBUFFER && -n $LBUFFER ]] || { (( explicit )) && _apple_fm_message 'Apple FM suggestions require the cursor at the end of a nonempty line.'; return; }
-  [[ -x $APPLE_FM_COMMAND ]] || { (( explicit )) && _apple_fm_message "Apple FM CLI is unavailable: ${APPLE_FM_COMMAND}"; return; }
-  _apple_fm_close_request; _apple_fm_close_timeout; _apple_fm_clear
+  [[ -x $APPLE_FM_COMMAND ]] || { _APPLE_FM_LAST_OUTCOME=no-cli; (( explicit )) && _apple_fm_message "Apple FM CLI is unavailable: ${APPLE_FM_COMMAND}"; return; }
+  _apple_fm_close_request; _apple_fm_close_timeout; _apple_fm_clear; _APPLE_FM_LAST_OUTCOME=pending
   (( ${#before} > APPLE_FM_CONTEXT_CAP )) && before=${before[-APPLE_FM_CONTEXT_CAP,-1]}
   instructions='Complete only the missing suffix of this zsh command line. Return only one single-line suffix, without explanation, code fences, repeated prefix, or execution instructions.'
   prompt=$'Shell: zsh\nWorking directory: '${PWD}$'\nCommand prefix:\n'${before}$'\n\nReturn the suffix only.'
