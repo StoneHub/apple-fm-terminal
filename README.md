@@ -1,6 +1,6 @@
 # Apple FM zsh autocomplete
 
-This is a small zle plugin for macOS 27. It asks the on-device Apple model for a single-line suffix, renders that suffix after the prompt, and inserts it into `LBUFFER` only when Tab is pressed. Enter remains the separate execution action.
+This is a small zle plugin for macOS 27. It asks the on-device Apple model to complete the command line being typed, renders the part after the typed text, and inserts it into `LBUFFER` only when Tab is pressed. Enter remains the separate execution action.
 
 ![Apple FM suggesting a shell command suffix in a zsh terminal](docs/images/autocomplete.png)
 
@@ -19,7 +19,9 @@ Type a command prefix at the end of an otherwise empty line and pause for the de
 
 The CLI path is controlled by `$APPLE_FM_COMMAND` and defaults to `/usr/bin/fm`. Requests use stdin plus `respond --model system --no-stream --greedy`; prompts and history are not saved. A private transient result file is removed after response or cancellation. Set `APPLE_FM_DEBOUNCE` before enabling to change the delay.
 
-The first version handles one line with the cursor at the end. It rejects multiline/control-character output, drops responses for changed buffers or directories, keeps only one active request and timer, and does not invoke generated text. Existing autosuggestion plugins remain responsible for their own display; if they also bind the same keys, load/order should be checked in the user's shell.
+The first version handles one line with the cursor at the end. It rejects multiline/control-character output and replies that don't start with the typed text, drops responses for changed buffers or directories, keeps only one active request and timer, and does not invoke generated text. Existing autosuggestion plugins remain responsible for their own display; if they also bind the same keys, load/order should be checked in the user's shell.
+
+`./pty-smoke.exp` checks the plugin against the fake model in `fixture-fm`. `./dogfood.exp` types each line of `dogfood-cases.txt` into a real zsh with the real model and prints how each request ended, its time, and the buffer after Tab. The plugin keeps how the last request ended in `$_APPLE_FM_LAST_OUTCOME`.
 
 ## Install or update
 

@@ -1,4 +1,10 @@
 #!/bin/zsh
+# Fake fm for pty-smoke.exp: the typed text picks the behaviour, and replies restate the typed line like the real prompt asks.
 input=$(cat)
+typed=${${input#*Typed so far:$'\n'}%%$'\n'*}
 [[ $input == *SLOW* ]] && sleep 1
-print -r -- ' suffix'
+[[ $input == *HANG* ]] && exec sleep 30
+[[ $input == *FAIL* ]] && exit 3
+[[ $input == *MULTI* ]] && { print -r -- "$typed one"; print -r -- 'two'; exit 0; }
+[[ $input == *OTHER* ]] && { print -r -- 'something else'; exit 0; }
+print -r -- "$typed suffix"

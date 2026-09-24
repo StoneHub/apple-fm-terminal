@@ -1,0 +1,11 @@
+# One command prefix per line; lines starting with # are skipped.
+git sta
+git commit -m "
+git log --oneline -
+ls -la | gr
+find . -name '*.rb' | xarg
+docker ps -
+bundle exec rspec spec/models/
+tar -czf backup.tar.gz
+brew upgr
+curl -s https://example.com | jq
