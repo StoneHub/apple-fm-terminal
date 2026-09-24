@@ -3,7 +3,8 @@ set timeout 12
 set here [file dirname [file normalize [info script]]]
 set env(TERM) xterm-256color
 spawn zsh -dfi
-# Declared after spawn so it binds to the shell; before spawn it bound to stdin and timeouts never failed.
+# Install the timeout handler after spawn so it applies to the shell PTY, not
+# this Expect script's stdin.
 expect_after timeout {error "PTY assertion timed out"}
 expect "%"
 send -- "PS1='PROOF>'; setopt nounset ksharrays; bindkey -e; APPLE_FM_COMMAND='$here/fixture-fm'; APPLE_FM_DEBOUNCE=0.1; source '$here/apple-fm.zsh'\r"
@@ -11,6 +12,10 @@ expect "PROOF>"
 send -- {saved=$(bindkey -M emacs '^I'; bindkey -M emacs '^['; bindkey -M emacs '^X^F'); function proof-buffer { zle -M -- "STATE:<${BUFFER}>:<${_APPLE_FM_SUGGESTION}>:<${_APPLE_FM_LAST_OUTCOME}>" }; zle -N proof-buffer; bindkey -M emacs '^X^B' proof-buffer; apple-fm-enable; print SETUP_DONE}
 send -- "\r"
 expect "\r\nSETUP_DONE\r\n"
+expect "PROOF>"
+send -- {[[ -o nounset && -o ksharrays ]] && print OPTIONS_AFTER_ENABLE}
+send -- "\r"
+expect "\r\nOPTIONS_AFTER_ENABLE\r\n"
 expect "PROOF>"
 send -- "alpha"
 send -- "\030\006"
@@ -77,9 +82,12 @@ send -- {fm=gone; pgrep -f "$APPLE_FM_COMMAND" >/dev/null && fm=running; bg_stat
 send -- "\r"
 expect "CANCEL:fm=gone:bg=alive:END"
 expect "PROOF>"
-send -- {apple-fm-disable; [[ "$saved" == "$(bindkey -M emacs '^I'; bindkey -M emacs '^['; bindkey -M emacs '^X^F')" ]] && print RESTORED; print -u2 STDERR_ALIVE}
+send -- {apple-fm-disable; [[ "$saved" == "$(bindkey -M emacs '^I'; bindkey -M emacs '^['; bindkey -M emacs '^X^F')" ]] && print RESTORED; [[ -o nounset && -o ksharrays ]] && print OPTIONS_AFTER_DISABLE; apple-fm-enable; [[ $(bindkey -M emacs '^I') == *apple-fm-tab* ]] && print REENABLED; [[ -o nounset && -o ksharrays ]] && print OPTIONS_AFTER_REENABLE; apple-fm-disable; print -u2 STDERR_ALIVE}
 send -- "\r"
 expect "\r\nRESTORED\r\n"
+expect "OPTIONS_AFTER_DISABLE"
+expect "REENABLED"
+expect "OPTIONS_AFTER_REENABLE"
 expect "STDERR_ALIVE"
 expect "PROOF>"
 send -- "exit\r"
