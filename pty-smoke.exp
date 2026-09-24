@@ -6,7 +6,7 @@ spawn zsh -dfi
 # Declared after spawn so it binds to the shell; before spawn it bound to stdin and timeouts never failed.
 expect_after timeout {error "PTY assertion timed out"}
 expect "%"
-send -- "PS1='PROOF>'; bindkey -e; APPLE_FM_COMMAND='$here/fixture-fm'; APPLE_FM_DEBOUNCE=0.1; source '$here/apple-fm.zsh'\r"
+send -- "PS1='PROOF>'; setopt nounset ksharrays; bindkey -e; APPLE_FM_COMMAND='$here/fixture-fm'; APPLE_FM_DEBOUNCE=0.1; source '$here/apple-fm.zsh'\r"
 expect "PROOF>"
 send -- {saved=$(bindkey -M emacs '^I'; bindkey -M emacs '^['; bindkey -M emacs '^X^F'); function proof-buffer { zle -M -- "STATE:<${BUFFER}>:<${_APPLE_FM_SUGGESTION}>:<${_APPLE_FM_LAST_OUTCOME}>" }; zle -N proof-buffer; bindkey -M emacs '^X^B' proof-buffer; apple-fm-enable; print SETUP_DONE}
 send -- "\r"
