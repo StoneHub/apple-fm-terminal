@@ -49,6 +49,21 @@ send -- "\030\002"
 expect "STATE:<FAIL>:<>:<exit:3>"
 send -- "\003"
 expect "PROOF>"
+# A reply that adds a destructive command is hidden, but a line where the user typed one still gets its suggestion.
+send -- "RISKY"
+send -- "\030\006"
+after 500
+send -- "\030\002"
+expect "STATE:<RISKY>:<>:<unsafe>"
+send -- "\003"
+expect "PROOF>"
+send -- "rm old.log"
+send -- "\030\006"
+after 500
+send -- "\030\002"
+expect "STATE:<rm old.log>:< suffix>:<ok>"
+send -- "\003"
+expect "PROOF>"
 # A reply that doesn't restate the typed text is dropped.
 send -- "OTHER"
 send -- "\030\006"
@@ -92,4 +107,4 @@ expect "STDERR_ALIVE"
 expect "PROOF>"
 send -- "exit\r"
 expect eof
-puts "PASS: preview, whitespace, Tab buffer insertion without execution, automatic suggestion, unsafe, failed and mismatched replies, dismissal, cancellation stops the model and spares background jobs, binding restoration, stderr preservation"
+puts "PASS: preview, whitespace, Tab buffer insertion without execution, automatic suggestion, unsafe, destructive, failed and mismatched replies, dismissal, cancellation stops the model and spares background jobs, binding restoration, stderr preservation"
