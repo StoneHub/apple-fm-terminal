@@ -52,3 +52,7 @@ archive, and checksum manifest with:
 
 The script only creates local files under `dist`; publishing release assets is a
 separate step.
+
+## Feature requests and plans
+
+Use [GitHub issues](https://github.com/StoneHub/apple-fm-terminal/issues) for bugs, feature requests, and current follow-up status. Longer designs live in this repository and are linked from their tracking issue. The [directory-aware completion proposal](docs/plans/directory-completion/design.md) includes acceptance cases and later context options; it is not implemented.
