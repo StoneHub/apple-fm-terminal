@@ -56,3 +56,7 @@ separate step.
 ## Feature requests and plans
 
 Use [GitHub issues](https://github.com/StoneHub/apple-fm-terminal/issues) for bugs, feature requests, and current follow-up status. Longer designs live in this repository and are linked from their tracking issue. The [directory-aware completion proposal](docs/plans/directory-completion/design.md) includes acceptance cases and later context options; it is not implemented.
+
+## Cloud task preparation
+
+See [cloud work](docs/CLOUD-WORK.md) for supported runner checks, task boundaries and local acceptance gates.
