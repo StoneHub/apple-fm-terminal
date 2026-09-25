@@ -1,6 +1,6 @@
 # Git completion quality: invented options (issue #10)
 
-Status: decision report, written 2026-09-25 against `7fd06dc`. Nothing here is implemented. Issue: [#10](https://github.com/StoneHub/apple-fm-terminal/issues/10).
+Status: decision report, written 2026-09-25 against `7fd06dc`. Option C is implemented in the same pull request, with decisions D1–D3 taken as recommended (below). Issue: [#10](https://github.com/StoneHub/apple-fm-terminal/issues/10).
 
 ## What happens today
 
@@ -60,13 +60,13 @@ R1 and R2 are the recorded live replies. S1–S9 are authored expectations for r
 | S8 | `git add -- ` | `git add -- -draft.md` | `ok` | After `--`, a word starting with `-` is a path |
 | S9 | `docker ps -` | `docker ps -aq` | `ok` (unchanged) | This slice is Git-only; see decision D1 |
 
-## Proposed implementation slice
+## Implementation slice (done in this pull request)
 
 Owned files: `apple-fm.zsh`, `fixture-fm`, `pty-smoke.exp`, README (one sentence under the checks list).
 
 1. Add `_apple_fm_git_adds_option before full`, following `_apple_fm_risky_count`. It z-splits both lines (`${(z)}`), returns 0 unless the first word is `git`, and treats as added the words after the typed ones plus the last typed word if the reply extends it. It sets `REPLY=1` if any added word before a `--` starts with `-`. A quoted word starts with a quote, so `-m "text -l"` is unaffected.
 2. In `_apple_fm_response`, after the destructive check (`:86-87`), set `_APPLE_FM_LAST_OUTCOME=option` and return without showing anything. Explicit requests say "Apple FM left Git options to zsh completion." Add `option` to the outcome list in the comment at `:13`.
-3. Teach `fixture-fm` to return R1, R2, S1, S3 and S5 for those typed lines, and add PTY assertions for their outcomes. R1 and R2 must show no suggestion, and Tab on them must fall through to the original binding without inserting the reply.
+3. Teach `fixture-fm` to return R1, R2, S1, S3, S4, S5, S8 and a piped case, and assert each outcome in `pty-smoke.exp` (`git_case`). R1, R2 and S5 leave no suggestion, so Tab keeps its original binding (`_apple_fm_tab`). With the rule disabled, R1 shows `tus --dirty --show-modified` as `ok` and the suite fails.
 
 Acceptance:
 
@@ -76,12 +76,14 @@ Acceptance:
 - On the Mac, run `./dogfood.exp` three times on `dogfood-cases.txt` with the recorded OS/model build. For every `ok` Git line, inspect usability by reading it, without running it. Report `option` abstentions separately from `ok`, `empty` and `mismatch`.
 - No suggestion is executed to score it, and no general shell parser is added.
 
+The rule also stops at the first command separator (`|`, `;`, `&&`…), so `git log | gr` → `git log | grep -i fix` is still shown.
+
 ## Linux test finding
 
-On a root runner, `pty-smoke.exp` times out at its first `expect "%"` (line 9). zsh's default prompt ends in `#` for root. Run as an unprivileged user (`runuser -u nobody -- ./pty-smoke.exp`), the full fake-model suite **passed** on Ubuntu 24.04 with zsh 5.9 and Expect 5.45.4. A one-line fix, `expect -re {[%#] }` in `pty-smoke.exp` and `dogfood.exp`, would make both scripts root-safe. It can ride with the slice above or go separately.
+On a root runner, `pty-smoke.exp` timed out at its first `expect "%"`: zsh's default prompt ends in `#` for root. Both Expect scripts now wait for `[%#] `. The full fake-model suite passes as root and as an unprivileged user on Ubuntu 24.04 with zsh 5.9 and Expect 5.45.4.
 
-## Decisions for the owner
+## Decisions taken
 
-- **D1.** Apply the option rule only to Git (recommended first), or to every command, since zsh completion handles flags generally.
-- **D2.** Whether the abstention hint is shown only on explicit requests (as proposed) or never.
-- **D3.** Whether to try prompt change A after C, measured with the same dogfood cases.
+- **D1. Git only**, for now. Other commands keep today's checks; widening the rule is a separate change once the Mac dogfood shows how often it abstains.
+- **D2.** The hint "Apple FM left Git options to zsh completion." appears only on explicit requests. Automatic ones stay silent, like the other rejections.
+- **D3.** Prompt change A is not tried here. Measure C's abstentions on the Mac first, with the same dogfood cases.

@@ -8,4 +8,15 @@ typed=${${input#*Typed so far:$'\n'}%%$'\n'*}
 [[ $input == *MULTI* ]] && { print -r -- "$typed one"; print -r -- 'two'; exit 0; }
 [[ $input == *RISKY* ]] && { print -r -- "$typed | xargs rm"; exit 0; }
 [[ $input == *OTHER* ]] && { print -r -- 'something else'; exit 0; }
+# Git replies recorded live in issue #10, and synthetic counterexamples for the Git option rule.
+case $typed in
+  ('git sta') print -r -- 'git status --dirty --show-modified'; exit 0;;
+  ('git log --oneline -') print -r -- 'git log --oneline -l'; exit 0;;
+  ('git log --oneline --gr') print -r -- 'git log --oneline --graph'; exit 0;;
+  ('git stat') print -r -- 'git status'; exit 0;;
+  ('git commit -m "') print -r -- 'git commit -m "Fix -l flag"'; exit 0;;
+  ('git checkout -b feature/') print -r -- 'git checkout -b feature/export-guard'; exit 0;;
+  ('git add -- ') print -r -- 'git add -- -draft.md'; exit 0;;
+  ('git log | gr') print -r -- 'git log | grep -i fix'; exit 0;;
+esac
 print -r -- "$typed suffix"
