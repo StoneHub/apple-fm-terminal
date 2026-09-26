@@ -6,7 +6,8 @@ spawn zsh -dfi
 # Install the timeout handler after spawn so it applies to the shell PTY, not
 # this Expect script's stdin.
 expect_after timeout {error "PTY assertion timed out"}
-expect "%"
+# The first prompt ends in % for a user and # for root.
+expect -re {[%#] }
 send -- "PS1='PROOF>'; setopt nounset ksharrays; bindkey -e; APPLE_FM_COMMAND='$here/fixture-fm'; APPLE_FM_DEBOUNCE=0.1; source '$here/apple-fm.zsh'\r"
 expect "PROOF>"
 send -- {saved=$(bindkey -M emacs '^I'; bindkey -M emacs '^['; bindkey -M emacs '^X^F'); function proof-buffer { zle -M -- "STATE:<${BUFFER}>:<${_APPLE_FM_SUGGESTION}>:<${_APPLE_FM_LAST_OUTCOME}>" }; zle -N proof-buffer; bindkey -M emacs '^X^B' proof-buffer; apple-fm-enable; print SETUP_DONE}
@@ -72,6 +73,24 @@ send -- "\030\002"
 expect "STATE:<OTHER>:<>:<mismatch>"
 send -- "\003"
 expect "PROOF>"
+# A Git reply that adds or finishes an option is left to zsh completion (#10); the first two are the live replies.
+proc git_case {typed suggestion outcome} {
+  send -- $typed
+  send -- "\030\006"
+  after 500
+  send -- "\030\002"
+  expect -exact "STATE:<$typed>:<$suggestion>:<$outcome>"
+  send -- "\003"
+  expect "PROOF>"
+}
+git_case {git sta} {} option
+git_case {git log --oneline -} {} option
+git_case {git log --oneline --gr} {} option
+git_case {git stat} {us} ok
+git_case {git commit -m "} {Fix -l flag"} ok
+git_case {git checkout -b feature/} {export-guard} ok
+git_case {git add -- } {-draft.md} ok
+git_case {git log | gr} {ep -i fix} ok
 send -- "SLOW"
 send -- "\030\006"
 after 100
@@ -107,4 +126,4 @@ expect "STDERR_ALIVE"
 expect "PROOF>"
 send -- "exit\r"
 expect eof
-puts "PASS: preview, whitespace, Tab buffer insertion without execution, automatic suggestion, unsafe, destructive, failed and mismatched replies, dismissal, cancellation stops the model and spares background jobs, binding restoration, stderr preservation"
+puts "PASS: preview, whitespace, Tab buffer insertion without execution, automatic suggestion, unsafe, destructive, failed and mismatched replies, Git options left to zsh completion, dismissal, cancellation stops the model and spares background jobs, binding restoration, stderr preservation"

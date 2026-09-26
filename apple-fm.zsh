@@ -10,7 +10,7 @@ typeset -g _APPLE_FM_FD=${_APPLE_FM_FD:--1} _APPLE_FM_PID=${_APPLE_FM_PID:--1} _
 typeset -g _APPLE_FM_TIMER_FD=${_APPLE_FM_TIMER_FD:--1} _APPLE_FM_TIMER_PID=${_APPLE_FM_TIMER_PID:--1}
 typeset -g _APPLE_FM_TIMEOUT_FD=${_APPLE_FM_TIMEOUT_FD:--1} _APPLE_FM_TIMEOUT_PID=${_APPLE_FM_TIMEOUT_PID:--1}
 typeset -g _APPLE_FM_SUGGESTION=${_APPLE_FM_SUGGESTION:-} _APPLE_FM_REGION_SAVED=${_APPLE_FM_REGION_SAVED:-0}
-# Last request result for harnesses and debugging: pending, ok, empty, exit:N, unsafe (control characters, several lines, or an added destructive command), mismatch, timeout, stale, cancelled or no-cli.
+# Last request result for harnesses and debugging: pending, ok, empty, exit:N, unsafe (control characters, several lines, or an added destructive command), option (a Git option the model added), mismatch, timeout, stale, cancelled or no-cli.
 typeset -g _APPLE_FM_LAST_OUTCOME=${_APPLE_FM_LAST_OUTCOME:-} _APPLE_FM_REQUEST_BEFORE=${_APPLE_FM_REQUEST_BEFORE:-}
 typeset -ga _APPLE_FM_SAVED_REGION
 # zsh does not set $! for <(...), so each bridge prints its own PID first and the caller reads it here.
@@ -30,6 +30,23 @@ _apple_fm_risky_count() {
     esac
   done
   REPLY=$n
+}
+# A Git reply may not add an option or finish one the user started; zsh's own completion offers the options this Git supports.
+# Checks a line starting with git up to its first command separator, and stops at --. Quoted words start with a quote, so
+# message text is never an option. Sets REPLY to 1 when the completed line adds or extends a word starting with -.
+_apple_fm_git_adds_option() {
+  emulate -L zsh
+  local -a typed=(${(z)1}) full=(${(z)2}); local i start=$(( $#typed + 1 ))
+  REPLY=0
+  [[ ${full[1]-} == git ]] || return 0
+  # A reply that finishes the last typed word changes it; one that follows a space leaves it whole.
+  (( $#typed )) && [[ ${full[$#typed]-} != ${typed[-1]} ]] && start=$#typed
+  for (( i = 1; i <= $#full; i++ )); do
+    case ${full[i]} in
+      '--'|'|'|'||'|'|&'|'&&'|';'|'&') return 0;;
+      -*) (( i >= start )) && { REPLY=1; return 0; };;
+    esac
+  done
 }
 _apple_fm_state() { emulate -L zsh; local sep=$'\x1f'; print -rn -- "${PWD}${sep}${LBUFFER}${sep}${RBUFFER}${sep}${CURSOR}"; }
 _apple_fm_message() { emulate -L zsh; zle -M -- "$1" 2>/dev/null; }
@@ -85,6 +102,8 @@ _apple_fm_response() {
   # A suggestion may not add a destructive command the user hasn't typed; one they typed themselves still gets suggestions.
   local typed_risk REPLY; _apple_fm_risky_count "$_APPLE_FM_REQUEST_BEFORE"; typed_risk=$REPLY; _apple_fm_risky_count "$_APPLE_FM_REQUEST_BEFORE$response"
   (( REPLY > typed_risk )) && { _APPLE_FM_LAST_OUTCOME=unsafe; (( explicit )) && _apple_fm_message 'Apple FM suggested a destructive command, so it is not shown.'; return; }
+  _apple_fm_git_adds_option "$_APPLE_FM_REQUEST_BEFORE" "$_APPLE_FM_REQUEST_BEFORE$response"
+  (( REPLY )) && { _APPLE_FM_LAST_OUTCOME=option; (( explicit )) && _apple_fm_message 'Apple FM left Git options to zsh completion.'; return; }
   _APPLE_FM_LAST_OUTCOME=ok; _APPLE_FM_SUGGESTION=$response; _apple_fm_show
 }
 _apple_fm_timeout() {

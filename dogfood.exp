@@ -15,7 +15,8 @@ if {[llength $prefixes] == 0} {
 spawn zsh -dfi
 # Declared after spawn so it binds to the shell, not to this script's own stdin.
 expect_after timeout {puts "FAIL: shell did not respond"; exit 1}
-expect "%"
+# The first prompt ends in % for a user and # for root.
+expect -re {[%#] }
 # Ctrl-C ends the shell, whose hang-up stops any model request still running.
 trap {send -- "\003"; send -- "exit\r"; exit 130} SIGINT
 send -- "PS1='DOGFOOD>'; bindkey -e; source '$here/apple-fm.zsh'\r"
