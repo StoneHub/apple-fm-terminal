@@ -1,3 +1,9 @@
+# Current checkpoint: 0.1.1
+
+Git suggestions that add or finish an option now abstain, leaving ordinary zsh completion available. PR #11 was checked on macOS 27.2 (26B5086k), zsh 5.9, with the real on-device `/usr/bin/fm`. Three runs of the ten declared dogfood cases produced 6 option abstentions (both Git option cases each run), 18 accepted previews, 3 unsafe refusals and 3 prefix mismatches. The quoted commit-message case produced a usable inserted message in all three runs. No generated command was executed. Accepted non-Git previews are not a general command-quality guarantee.
+
+The full fixture-backed PTY smoke passed, including Tab insertion without execution, cancellation, stale requests and original binding restoration. Local archive installation is separate from publication; no public release was created.
+
 # Terminal prototype status
 
 Parent Astra reviewed; ready for a local trial on this Mac. Use `git rev-parse HEAD` for the current local checkpoint.
