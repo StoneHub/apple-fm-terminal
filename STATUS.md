@@ -4,6 +4,12 @@ Git suggestions that add or finish an option now abstain, leaving ordinary zsh c
 
 The full fixture-backed PTY smoke passed, including Tab insertion without execution, cancellation, stale requests and original binding restoration. Local archive installation is separate from publication; no public release was created.
 
+# Unreleased: Ctrl-C and removal
+
+Pressing Ctrl-C while a suggestion was visible left the gray suffix printed in the scrollback, because zsh skips `line-finish` on an interrupt. Copied out of Terminal, it reads as typed text. The plugin now installs a `TRAPINT` that clears the suggestion. It does this only when the shell has no INT trap of its own, and `apple-fm-disable` removes it. `apple-fm-remove` never worked before this fix: it passed `_apple_fm_*` to `unfunction` as a filename glob, which failed with no matches. It now matches function names. `install.sh --uninstall` and `apple-fm-uninstall` remove the `.zshrc` block and the installed files. Reinstalling no longer adds a blank line to `.zshrc` each time.
+
+Checked on Linux (zsh 5.9, Expect, fake model): `./pty-smoke.exp` passes, and its new Ctrl-C case fails without the fix. Install into a temporary home (with `uname` and `/usr/bin/fm` stubbed), then reinstall: the zshrc is identical after both. `apple-fm-uninstall` restores it byte for byte and leaves no plugin functions or bindings. This has not been tried in Terminal.app with the real model, and a slow or garbled prompt reported there has not been reproduced.
+
 # Terminal prototype status
 
 Parent Astra reviewed; ready for a local trial on this Mac. Use `git rev-parse HEAD` for the current local checkpoint.
@@ -56,8 +62,9 @@ The installer uses no sudo, installs to `~/.local/share/apple-fm-terminal`, and
 adds an idempotent marked block to `${ZDOTDIR:-$HOME}/.zshrc`. New shells provide
 `apple-fm-update` and `apple-fm-version`. A local artifact trial uses
 `HOME=/tmp/test-home ZDOTDIR=/tmp/test-home/zsh APPLE_FM_INSTALL_DIR=/tmp/test-home/data/apple-fm-terminal ./install.sh --archive ... --checksums ...`.
-To remove the installation, delete only the marked block from the selected zshrc
-and remove `~/.local/share/apple-fm-terminal` after closing shells using it.
+To remove the installation, run `apple-fm-uninstall` (or `install.sh --uninstall`). Installs
+from 0.1.1 or earlier don't have that command: delete the marked block from the selected zshrc
+and remove `~/.local/share/apple-fm-terminal`, then open a new window.
 
 Checks run: `sh -n install.sh package-release.sh`, `zsh -n apple-fm.zsh`,
 `git diff --check`, package generation, checksum-verified temporary-home install,

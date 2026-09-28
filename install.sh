@@ -14,18 +14,54 @@ die() { printf 'apple-fm-terminal: %s\n' "$*" >&2; exit 1; }
 usage() {
   printf '%s\n' \
     'Usage: install.sh [--install|--update] [--archive PATH [--checksums PATH]]' \
+    '       install.sh --uninstall' \
     '       install.sh --help'
 }
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --install|--update) mode=latest; shift ;;
+    --uninstall) mode=uninstall; shift ;;
     --archive) [ "$#" -ge 2 ] || die '--archive requires a path'; mode=local; archive_arg=$2; shift 2 ;;
     --checksums) [ "$#" -ge 2 ] || die '--checksums requires a path'; checksum_arg=$2; shift 2 ;;
     --help|-h) usage; exit 0 ;;
     *) usage >&2; exit 2 ;;
   esac
 done
+
+start='# >>> apple-fm-terminal >>>'
+end='# <<< apple-fm-terminal <<<'
+# Prints stdin without the marked block or the one blank line the installer writes before it, so reinstalling doesn't
+# pile up blank lines and removal leaves the file as it was.
+strip_block() {
+  awk -v start="$start" -v end="$end" '
+    $0 == start { skip = 1; held = 0; next }
+    skip { if ($0 == end) skip = 0; next }
+    held { print ""; held = 0 }
+    $0 == "" { held = 1; next }
+    { print }
+    END { if (held) print "" }'
+}
+
+# Removal needs neither macOS nor /usr/bin/fm, so it runs before those checks. It deletes the marked zshrc block and only
+# the files the installer copied, never the whole directory tree.
+if [ "$mode" = uninstall ]; then
+  if [ -f "$zshrc" ] && grep -qF "$start" "$zshrc"; then
+    grep -qF "$end" "$zshrc" || die "$zshrc has an incomplete apple-fm-terminal block; refusing to edit it."
+    tmp_rc=$(mktemp "${TMPDIR:-/tmp}/apple-fm-terminal-zshrc.XXXXXX") || die 'could not create a temporary file.'
+    strip_block < "$zshrc" > "$tmp_rc"
+    cat "$tmp_rc" > "$zshrc"; rm -f "$tmp_rc"
+    printf 'Removed the apple-fm-terminal block from %s\n' "$zshrc"
+  else
+    printf 'No apple-fm-terminal block in %s\n' "$zshrc"
+  fi
+  if [ -d "$install_dir" ]; then
+    for name in apple-fm.zsh install.sh README.md STATUS.md VERSION; do rm -f "$install_dir/$name"; done
+    rmdir "$install_dir" 2>/dev/null && printf 'Removed %s\n' "$install_dir" || printf 'Left %s in place because it holds other files\n' "$install_dir"
+  fi
+  printf '%s\n' 'New zsh sessions no longer load it. In a shell that is already open, run apple-fm-remove or open a new window.'
+  exit 0
+fi
 
 [ "$(uname -s)" = Darwin ] || die 'macOS is required (Darwin was not detected).'
 [ -x /usr/bin/fm ] || die '/usr/bin/fm is unavailable; install on a supported macOS system with Apple FM enabled.'
@@ -70,11 +106,9 @@ chmod 644 "$install_dir/apple-fm.zsh" "$install_dir/README.md" "$install_dir/STA
 chmod 755 "$install_dir/install.sh"
 
 mkdir -p "$config_dir"
-start='# >>> apple-fm-terminal >>>'
-end='# <<< apple-fm-terminal <<<'
 if [ -f "$zshrc" ] && grep -qF "$start" "$zshrc"; then
   grep -qF "$end" "$zshrc" || die "$zshrc has an incomplete apple-fm-terminal block; refusing to edit it."
-  awk -v start="$start" -v end="$end" '$0 == start {skip=1; next} $0 == end {skip=0; next} !skip {print}' "$zshrc" > "$tmp_dir/zshrc"
+  strip_block < "$zshrc" > "$tmp_dir/zshrc"
 else
   [ -f "$zshrc" ] && cp "$zshrc" "$tmp_dir/zshrc" || : > "$tmp_dir/zshrc"
 fi
@@ -85,7 +119,7 @@ quoted_version=$(shell_quote "$install_dir/VERSION")
 {
   cat "$tmp_dir/zshrc"
   printf '\n%s\n' "$start"
-  printf 'if [ -r %s ]; then\n  source %s\n  apple-fm-enable\nfi\napple-fm-update() { %s --update "$@"; }\napple-fm-version() { cat %s; }\n%s\n' "$quoted_install" "$quoted_install" "$quoted_installer" "$quoted_version" "$end"
+  printf 'if [ -r %s ]; then\n  source %s\n  apple-fm-enable\nfi\napple-fm-update() { %s --update "$@"; }\napple-fm-uninstall() { %s --uninstall && { (( $+functions[apple-fm-remove] )) && apple-fm-remove; unfunction apple-fm-update apple-fm-version apple-fm-uninstall; }; }\napple-fm-version() { cat %s; }\n%s\n' "$quoted_install" "$quoted_install" "$quoted_installer" "$quoted_installer" "$quoted_version" "$end"
 } > "$tmp_dir/zshrc.new"
 if [ -e "$zshrc" ]; then
   cat "$tmp_dir/zshrc.new" > "$zshrc"

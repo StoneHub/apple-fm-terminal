@@ -10,6 +10,7 @@ typeset -g _APPLE_FM_FD=${_APPLE_FM_FD:--1} _APPLE_FM_PID=${_APPLE_FM_PID:--1} _
 typeset -g _APPLE_FM_TIMER_FD=${_APPLE_FM_TIMER_FD:--1} _APPLE_FM_TIMER_PID=${_APPLE_FM_TIMER_PID:--1}
 typeset -g _APPLE_FM_TIMEOUT_FD=${_APPLE_FM_TIMEOUT_FD:--1} _APPLE_FM_TIMEOUT_PID=${_APPLE_FM_TIMEOUT_PID:--1}
 typeset -g _APPLE_FM_SUGGESTION=${_APPLE_FM_SUGGESTION:-} _APPLE_FM_REGION_SAVED=${_APPLE_FM_REGION_SAVED:-0}
+typeset -g _APPLE_FM_OWN_TRAPINT=${_APPLE_FM_OWN_TRAPINT:-0}
 # Last request result for harnesses and debugging: pending, ok, empty, exit:N, unsafe (control characters, several lines, or an added destructive command), option (a Git option the model added), mismatch, timeout, stale, cancelled or no-cli.
 typeset -g _APPLE_FM_LAST_OUTCOME=${_APPLE_FM_LAST_OUTCOME:-} _APPLE_FM_REQUEST_BEFORE=${_APPLE_FM_REQUEST_BEFORE:-}
 typeset -ga _APPLE_FM_SAVED_REGION
@@ -162,7 +163,25 @@ _apple_fm_escape() {
   _APPLE_FM_DISMISSED=$(_apple_fm_state); _apple_fm_cancel; _APPLE_FM_OBSERVED=$_APPLE_FM_DISMISSED
   [[ $KEYMAP == viins ]] && zle "${_APPLE_FM_ESC_VIINS:-undefined-key}" || zle "${_APPLE_FM_ESC_EMACS:-undefined-key}"
 }
-zle -N _apple_fm_response; zle -N _apple_fm_debounce; zle -N _apple_fm_timeout
+# Ctrl-C aborts the line without running line-finish, so without this the gray suffix stays in the scrollback.
+_apple_fm_interrupt() { emulate -L zsh; _apple_fm_cancel; }
+_apple_fm_trapint() { zle && zle _apple_fm_interrupt; return $(( 128 + $1 )); }
+# Installs the Ctrl-C trap only when the shell has no INT trap of its own. local_traps is off so the trap outlives this function.
+_apple_fm_trap_int() {
+  emulate -L zsh; setopt no_local_traps
+  (( ${+functions[TRAPINT]} )) && return
+  local file listing; file=$(mktemp -t apple-fm-traps.XXXXXX) || return
+  trap >| "$file"; listing=$(<"$file"); rm -f -- "$file"
+  [[ -n ${(M)${(f)listing}:#* INT} ]] && return
+  functions[TRAPINT]=${functions[_apple_fm_trapint]}; _APPLE_FM_OWN_TRAPINT=1
+}
+_apple_fm_untrap_int() {
+  emulate -L zsh; setopt no_local_traps
+  (( _APPLE_FM_OWN_TRAPINT )) || return; _APPLE_FM_OWN_TRAPINT=0
+  # Leave a TRAPINT the user defined after enabling alone.
+  [[ ${functions[TRAPINT]-} == ${functions[_apple_fm_trapint]} ]] && unfunction TRAPINT
+}
+zle -N _apple_fm_response; zle -N _apple_fm_debounce; zle -N _apple_fm_timeout; zle -N _apple_fm_interrupt
 zle -N fm-suggest; zle -N apple-fm-tab _apple_fm_tab; zle -N apple-fm-dismiss _apple_fm_escape
 _apple_fm_binding() { emulate -L zsh; local b=$(bindkey -M "$1" "$2"); print -r -- "${${(z)b}[2]}"; }
 apple-fm-enable() {
@@ -177,14 +196,15 @@ apple-fm-enable() {
   add-zle-hook-widget -d line-pre-redraw _apple_fm_pre_redraw 2>/dev/null; add-zle-hook-widget line-pre-redraw _apple_fm_pre_redraw
   add-zle-hook-widget -d line-init _apple_fm_line_init 2>/dev/null; add-zle-hook-widget line-init _apple_fm_line_init
   add-zle-hook-widget -d line-finish _apple_fm_line_finish 2>/dev/null; add-zle-hook-widget line-finish _apple_fm_line_finish
-  _APPLE_FM_ENABLED=1; _APPLE_FM_OBSERVED=$(_apple_fm_state)
+  _apple_fm_trap_int; _APPLE_FM_ENABLED=1; _APPLE_FM_OBSERVED=$(_apple_fm_state)
 }
 apple-fm-disable() {
   emulate -L zsh
-  (( _APPLE_FM_ENABLED )) || return; _apple_fm_cancel; autoload -Uz add-zle-hook-widget
+  (( _APPLE_FM_ENABLED )) || return; _apple_fm_cancel; _apple_fm_untrap_int; autoload -Uz add-zle-hook-widget
   add-zle-hook-widget -d line-pre-redraw _apple_fm_pre_redraw 2>/dev/null; add-zle-hook-widget -d line-init _apple_fm_line_init 2>/dev/null; add-zle-hook-widget -d line-finish _apple_fm_line_finish 2>/dev/null
   bindkey -M emacs '^I' "${_APPLE_FM_TAB_EMACS:-expand-or-complete}"; bindkey -M viins '^I' "${_APPLE_FM_TAB_VIINS:-expand-or-complete}"
   bindkey -M emacs '^[' "${_APPLE_FM_ESC_EMACS:-undefined-key}"; bindkey -M viins '^[' "${_APPLE_FM_ESC_VIINS:-undefined-key}"
   bindkey -M emacs "$APPLE_FM_TRIGGER" "${_APPLE_FM_TRIGGER_EMACS:-undefined-key}"; bindkey -M viins "$APPLE_FM_TRIGGER" "${_APPLE_FM_TRIGGER_VIINS:-undefined-key}"; _APPLE_FM_ENABLED=0
 }
-apple-fm-remove() { emulate -L zsh; apple-fm-disable; unfunction apple-fm-enable apple-fm-disable apple-fm-remove fm-suggest _apple_fm_* 2>/dev/null; }
+# -m matches function names; a bare _apple_fm_* would be a filename glob and fail with no matches.
+apple-fm-remove() { emulate -L zsh; apple-fm-disable; unfunction apple-fm-enable apple-fm-disable apple-fm-remove fm-suggest 2>/dev/null; unfunction -m '_apple_fm_*'; }

@@ -38,7 +38,10 @@ sudo. It adds one marked, idempotent block to `${ZDOTDIR:-$HOME}/.zshrc`; existi
 configuration outside that block is preserved. Start a new zsh session afterward.
 
 Once enabled, `apple-fm-update` repeats the verified latest-release update and
-`apple-fm-version` prints the installed version. To test a locally built release
+`apple-fm-version` prints the installed version. `apple-fm-uninstall` removes the marked
+`.zshrc` block and the installed files and turns the plugin off in the current
+shell. The same removal is `sh ~/.local/share/apple-fm-terminal/install.sh --uninstall`;
+it needs neither macOS nor `/usr/bin/fm`. To test a locally built release
 without changing the real home directory, set `HOME`, `ZDOTDIR`, and
 `APPLE_FM_INSTALL_DIR` to directories under a temporary home and invoke the
 installer with `--archive`.

@@ -35,6 +35,14 @@ send -- "\030\002"
 expect "STATE:<auto>:< suffix>:<ok>"
 send -- "\003"
 expect "PROOF>"
+# Ctrl-C skips line-finish, so the plugin's INT trap must erase a visible suffix before the line is left in the scrollback.
+# Without it the redraw only backs up over the gray text (^H) and it stays on screen.
+send -- "ghost"
+send -- "\030\006"
+expect " suffix"
+send -- "\003"
+expect -re {^[^\n]*?(\x1b\[39m |\x1b\[K)[^\n]*?\x1b\[\?2004l}
+expect "PROOF>"
 # A two-line reply is rejected, and a failing CLI is reported with its exit code.
 send -- "MULTI"
 send -- "\030\006"
@@ -126,4 +134,4 @@ expect "STDERR_ALIVE"
 expect "PROOF>"
 send -- "exit\r"
 expect eof
-puts "PASS: preview, whitespace, Tab buffer insertion without execution, automatic suggestion, unsafe, destructive, failed and mismatched replies, Git options left to zsh completion, dismissal, cancellation stops the model and spares background jobs, binding restoration, stderr preservation"
+puts "PASS: preview, whitespace, Tab buffer insertion without execution, automatic suggestion, Ctrl-C erases the suggestion, unsafe, destructive, failed and mismatched replies, Git options left to zsh completion, dismissal, cancellation stops the model and spares background jobs, binding restoration, stderr preservation"
