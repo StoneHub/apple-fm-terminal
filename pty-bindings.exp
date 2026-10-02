@@ -1,0 +1,57 @@
+#!/usr/bin/expect -f
+# Trigger settings take effect on the next enable; disabling/removing restores the key actually bound.
+set timeout 12
+set here [file dirname [file normalize [info script]]]
+set env(TERM) xterm-256color
+spawn zsh -dfi
+expect_after {
+  timeout {error "PTY binding assertion timed out"}
+  eof {error "Shell exited before the PTY binding assertions finished"}
+}
+expect -re {[%#] }
+send -- "PS1='BINDINGS>'; setopt nounset ksharrays; bindkey -e; APPLE_FM_COMMAND='$here/fixture-fm'; APPLE_FM_DEBOUNCE=60; source '$here/apple-fm.zsh'\r"
+expect "BINDINGS>"
+send -- {function binding-state { emulate -L zsh; local map key; for map in emacs viins; do for key in '^I' '^[' '^X^F' '^X^G' '^X^H'; do bindkey -M "$map" "$key"; done; done }; function proof-buffer { zle -M -- "STATE:<${BUFFER}>:<${_APPLE_FM_SUGGESTION}>:<${_APPLE_FM_LAST_OUTCOME}>" }; zle -N proof-buffer; bindkey -M emacs '^X^B' proof-buffer; saved=$(binding-state); apple-fm-enable; APPLE_FM_TRIGGER='^X^G'; apple-fm-enable; print SETUP_DONE}
+send -- "\r"
+expect "\r\nSETUP_DONE\r\n"
+expect "BINDINGS>"
+# Re-enabling is idempotent while active; the original trigger still requests a preview.
+send -- "first"
+send -- "\030\006"
+expect " suffix"
+send -- "\030\002"
+expect "STATE:<first>:< suffix>:<ok>"
+send -- "\t"
+send -- "\030\002"
+expect "STATE:<first suffix>:<>"
+send -- "\025"
+send -- "\030\002"
+expect "STATE:<>:<>"
+send -- {apple-fm-disable; [[ "$saved" == "$(binding-state)" ]] && print TRIGGER_RESTORED; apple-fm-enable; [[ $(bindkey -M emacs '^X^G') == *fm-suggest* && $(bindkey -M viins '^X^G') == *fm-suggest* ]] && print NEW_TRIGGER_ENABLED; [[ -o nounset && -o ksharrays ]] && print OPTIONS_AFTER_CYCLE}
+send -- "\r"
+expect "\r\nTRIGGER_RESTORED\r\n"
+expect "\r\nNEW_TRIGGER_ENABLED\r\n"
+expect "OPTIONS_AFTER_CYCLE\r\n"
+expect "BINDINGS>"
+# The next enable uses the changed setting; Tab still inserts without executing.
+send -- "cycle"
+send -- "\030\007"
+expect " suffix"
+send -- "\030\002"
+expect "STATE:<cycle>:< suffix>:<ok>"
+send -- "\t"
+send -- "\030\002"
+expect "STATE:<cycle suffix>:<>"
+send -- "\025"
+send -- "\030\002"
+expect "STATE:<>:<>"
+# Removal restores the second trigger even after another configuration change.
+send -- {APPLE_FM_TRIGGER='^X^H'; apple-fm-remove; [[ "$saved" == "$(binding-state)" ]] && print REMOVE_RESTORED; (( ${+functions[fm-suggest]} == 0 && ${+functions[apple-fm-enable]} == 0 )) && print FUNCTIONS_REMOVED; [[ -o nounset && -o ksharrays ]] && print OPTIONS_AFTER_REMOVE}
+send -- "\r"
+expect "\r\nREMOVE_RESTORED\r\n"
+expect "\r\nFUNCTIONS_REMOVED\r\n"
+expect "OPTIONS_AFTER_REMOVE\r\n"
+expect "BINDINGS>"
+send -- "exit\r"
+expect eof
+puts "PASS: trigger changes, idempotent enable, both keymaps restored, re-enable uses new trigger, Tab insertion without execution, removal and caller options"

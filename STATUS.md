@@ -10,6 +10,12 @@ Pressing Ctrl-C while a suggestion was visible left the gray suffix printed in t
 
 Checked on Linux (zsh 5.9, Expect, fake model): `./pty-smoke.exp` passes, and its new Ctrl-C case fails without the fix. Install into a temporary home (with `uname` and `/usr/bin/fm` stubbed), then reinstall: the zshrc is identical after both. `apple-fm-uninstall` restores it byte for byte and leaves no plugin functions or bindings. This has not been tried in Terminal.app with the real model, and a slow or garbled prompt reported there has not been reproduced.
 
+# Unreleased: request-key restoration
+
+Changing `APPLE_FM_TRIGGER` while enabled previously left `fm-suggest` bound to the old key and restored its original binding onto the new key. The plugin now captures the request key for each enable/disable cycle. An active repeated enable is still a no-op; the next enable uses the new setting. Disable and remove restore the key actually bound, leaving the next configured key alone.
+
+Checked on Linux with zsh 5.9 and Expect 5.45.4: `./pty-bindings.exp` fails on the previous code and passes three consecutive runs on the fix. It checks both keymaps, configuration changes while enabled, repeated enable, re-enable with the new trigger, Tab insertion without execution, removal and preservation of `nounset`/`ksharrays`. `zsh -n apple-fm.zsh`, `sh -n install.sh package-release.sh` and `git diff --check` pass. The unchanged full `./pty-smoke.exp` intermittently stalls after a rapid Ctrl-C on both the prior code and this fix; that remains a separate verification gap. This change has not yet been accepted in Terminal.app with the real model and does not resolve issue #12's mid-line corruption report.
+
 # Terminal prototype status
 
 Parent Astra reviewed; ready for a local trial on this Mac. Use `git rev-parse HEAD` for the current local checkpoint.

@@ -17,11 +17,13 @@ apple-fm-enable
 
 Type a command prefix at the end of an otherwise empty line and pause for the default 350 ms, or invoke the explicit request with `Ctrl-X Ctrl-F` (`$APPLE_FM_TRIGGER`). Press Tab to insert a visible suffix. Escape dismisses it. `apple-fm-disable` restores the Tab and Escape bindings captured when enabled; `apple-fm-remove` disables and removes the plugin functions. No `.zshrc` is edited.
 
+`APPLE_FM_TRIGGER` is captured when enabled. To change the request key, disable the plugin, set the new trigger, then enable it again. Disabling or removing restores the captured trigger binding even if the setting changed while the plugin was active.
+
 The CLI path is controlled by `$APPLE_FM_COMMAND` and defaults to `/usr/bin/fm`. Requests use stdin plus `respond --model system --no-stream --greedy`; prompts and history are not saved. A private transient result file is removed after response or cancellation. Set `APPLE_FM_DEBOUNCE` before enabling to change the delay.
 
 The first version handles one line with the cursor at the end. It rejects multiline/control-character output, replies that don't start with the typed text, and suggestions that add a destructive command you haven't typed (`rm`, `sudo`, `dd`, `mkfs`, a recursive `chmod` or `chown`, a forced `git push`, or a redirect that truncates a file), and Git suggestions that add or finish an option (zsh's own completion offers the options your Git supports), drops responses for changed buffers or directories, keeps only one active request and timer, and does not invoke generated text. Existing autosuggestion plugins remain responsible for their own display; if they also bind the same keys, load/order should be checked in the user's shell.
 
-`./pty-smoke.exp` checks the plugin against the fake model in `fixture-fm`. `./dogfood.exp` types each line of `dogfood-cases.txt` into a real zsh with the real model and prints how each request ended, its time, and the buffer after Tab. The plugin keeps how the last request ended in `$_APPLE_FM_LAST_OUTCOME`.
+`./pty-smoke.exp` checks the plugin against the fake model in `fixture-fm`. `./pty-bindings.exp` checks trigger reconfiguration, binding restoration in both keymaps, and removal. `./dogfood.exp` types each line of `dogfood-cases.txt` into a real zsh with the real model and prints how each request ended, its time, and the buffer after Tab. The plugin keeps how the last request ended in `$_APPLE_FM_LAST_OUTCOME`.
 
 ## Install or update
 
