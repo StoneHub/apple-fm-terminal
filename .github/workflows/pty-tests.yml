@@ -1,0 +1,27 @@
+name: PTY tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fake-model:
+    name: Fake-model PTY smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install zsh and Expect
+        run: sudo apt-get update -q && sudo apt-get install -y -q zsh expect
+
+      - name: Syntax-check the plugin
+        run: zsh -n apple-fm.zsh
+
+      - name: Run the PTY smoke against fixture-fm
+        run: ./pty-smoke.exp

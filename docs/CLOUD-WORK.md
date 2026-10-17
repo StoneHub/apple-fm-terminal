@@ -4,7 +4,7 @@ This zsh plugin is a companion to Jot, not its current package dependency. Jot's
 
 ## Environment
 
-Preparation baseline: `d9bd7bd` on 2026-09-25. Record the runner's checkout/branch and inspect the assigned issue/overlapping PRs. For source analysis, Git and text tools suffice. For mocked shell tests, provision zsh and Expect; `pty-smoke.exp` uses `fixture-fm`, not `/usr/bin/fm`. Run `zsh -n apple-fm.zsh` then `./pty-smoke.exp` once. Verify a usable PTY and fixture shebangs on the actual runner. The fake-model suite passed locally on a Mac; hosted Linux is not yet verified.
+Preparation baseline: `d9bd7bd` on 2026-09-25. Record the runner's checkout/branch and inspect the assigned issue/overlapping PRs. For source analysis, Git and text tools suffice. For mocked shell tests, provision zsh and Expect; `pty-smoke.exp` uses `fixture-fm`, not `/usr/bin/fm`. Run `zsh -n apple-fm.zsh` then `./pty-smoke.exp` once. Verify a usable PTY and fixture shebangs on the actual runner. The fake-model suite passes on a Mac and on Linux; `.github/workflows/pty-tests.yml` runs the same two checks on every PR.
 
 Allow five minutes for preflight and one evidence-backed setup correction, then report repeated failure. Missing Apple inference is an expected Linux limit. Real quality tests in `dogfood.exp`, user shell installation and Jot integration need separate Mac work. Keep Tab acceptance separate from Enter execution. Preserve caller options/bindings. Avoid changing real shell startup files or running installers. No personal history or MCP service is required. Missing personal `/Users/...` files are not setup dependencies.
 
