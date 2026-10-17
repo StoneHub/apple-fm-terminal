@@ -1,5 +1,10 @@
 # Apple FM zsh autocomplete
 
+For the separate, request-only **Terminal Ask prototype** (questions, recent
+session context, and reviewed command insertion), see
+[prototype/README.md](prototype/README.md). It runs in a disposable shell and does
+not require Jot or change your installed autocomplete setup.
+
 This is a small zle plugin for macOS 27. It asks the on-device Apple model to complete the command line being typed, renders the part after the typed text, and inserts it into `LBUFFER` only when Tab is pressed. Enter remains the separate execution action.
 
 ![Apple FM suggesting a shell command suffix in a zsh terminal](docs/images/autocomplete.png)
