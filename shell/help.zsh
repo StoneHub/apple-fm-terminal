@@ -90,17 +90,17 @@ fm-ask() {
       print -r -- 'Ctrl-X then ? requests help; Tab inserts a preview; Enter executes; Escape dismisses.'
       return 0;;
     --context)
-      "$_FMH_PYTHON" "$_FMH_HELPER" --client "$_FMH_SOCKET" context
+      "$_FMH_PYTHON" -I -B "$_FMH_HELPER" --client "$_FMH_SOCKET" context
       return $?;;
     --clear|--pause|--resume)
       local cleared
-      cleared=$("$_FMH_PYTHON" "$_FMH_HELPER" --client "$_FMH_SOCKET" "${1#--}") || return $?
+      cleared=$("$_FMH_PYTHON" -I -B "$_FMH_HELPER" --client "$_FMH_SOCKET" "${1#--}") || return $?
       print -r -- "${cleared#*$'\n'}"
       return 0;;
   esac
   print -r -- 'Apple FM: thinking locally… (typing or Ctrl-C cancels)'
   local result
-  result=$("$_FMH_PYTHON" "$_FMH_HELPER" --client "$_FMH_SOCKET" ask "$*") || return $?
+  result=$("$_FMH_PYTHON" -I -B "$_FMH_HELPER" --client "$_FMH_SOCKET" ask "$*") || return $?
   _FMH_COMMAND=${result%%$'\n'*}
   print -r -- "${result#*$'\n'}"
   if [[ -n $_FMH_COMMAND ]]; then
@@ -221,5 +221,5 @@ if ! whence ask >/dev/null 2>&1; then
   functions[ask]='fm-ask "$@"'
 fi
 if ! whence apple-fm-terminal >/dev/null 2>&1; then
-  apple-fm-terminal() { "$_FMH_PYTHON" "$_FMH_ROOT/scripts/management.py" "$@"; }
+  apple-fm-terminal() { "$_FMH_PYTHON" -I -B "$_FMH_ROOT/scripts/management.py" "$@"; }
 fi

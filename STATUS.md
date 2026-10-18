@@ -66,3 +66,36 @@ prototype branch. Public release and Homebrew publication remain separate.
 
 Cleanup: packaging tests remove their isolated homes, archives and staging
 folders. No build/dist outputs, temporary processes or test installs retained.
+
+## Self-contained preview candidate - October 18, 2026
+
+Version 0.3.0-preview.1. Public publication remains on hold. The staged public
+package uses the published AppleFM revision; private local overlays are excluded.
+
+- Private CPython 3.12.15 runtime (python-build-standalone 20261013, arm64)
+  bundled with checksum-pinned provenance and dependency licenses. No user-side
+  Xcode, developer tools or separate Python install is required. Runtime is
+  isolated from Python environment/user packages, with bytecode writes disabled.
+- macOS 26+, native Apple Silicon and model readiness checked before activation.
+  Users launch Install.command from the disk image/folder, complete the existing
+  wizard, and open a normal zsh tab. Managed settings and Tab/Enter stay separate.
+- Build/13 focused shell checks and metadata packaging regression passed. Exact
+  archive tested with external Python/Swift/Xcode commands deliberately failing,
+  poisoned Python environment, native model generation, actual shell-buffer
+  insertion before Enter, idempotent update and full runtime removal. Original
+  shell bytes and unrelated files preserved. PTY proof is not physical GUI proof.
+- Added explicit-identity Mach-O signing, disk image signing, notarytool submit,
+  acceptance/stapling/assessment and checksum generation. No certificate is chosen
+  automatically. No GitHub release, tag or asset upload occurs in preparation.
+- Local tar/disk image candidates prepared (approximately 22/29 MB; payload 58 MB).
+
+Remaining gates: maintainer's Developer ID Application identity and notarytool
+profile, accepted/stapled notarization, quarantine/Terminal.app installation on a
+second supported Mac without developer tools (including intended macOS 26 minimum),
+and actual SSH/custom-shell trial. Publication requires separate authorization.
+See docs/preview-release.md for the exact procedure and draft release notes.
+
+Cleanup owner: Terminal task. Remove build/compiler/download/staging/test outputs
+after final readback. Keep only final dist/ candidates/checksums for Monroe's
+review until replaced or publication is cancelled. No temporary test runtime or
+service should survive this task.

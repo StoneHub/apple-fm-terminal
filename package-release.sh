@@ -3,6 +3,9 @@ set -eu
 repo_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 cd "$repo_dir"
 ./scripts/build-install.sh --build-only
+if [ -n "${APPLE_FM_SIGN_IDENTITY:-}" ]; then
+  python3 scripts/sign-payload.py build/package
+fi
 version=$(tr -d '[:space:]' < VERSION)
 dist_dir=${1:-"$repo_dir/dist"}
 mkdir -p "$dist_dir"

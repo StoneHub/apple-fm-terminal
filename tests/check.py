@@ -27,6 +27,8 @@ class Terminal:
         fake = scratch / "fixture-fm"
         fake.write_text("#!/usr/bin/env python3\n" + '''
 import json, os, sys, time
+if '--availability' in sys.argv:
+    print(json.dumps({'availability': 'available'})); sys.exit(0)
 request = json.loads(json.load(sys.stdin)["prompt"])
 with open(os.environ['FM_TEST_LOG'], 'a') as log:
     log.write(json.dumps(request) + '\\n')

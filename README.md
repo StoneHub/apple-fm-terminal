@@ -4,17 +4,39 @@ Ask questions in your normal zsh session using Apple's on-device model. Review a
 explanation and one proposed command, press **Tab to insert**, and press **Enter
 separately to execute**. Jot is not required.
 
-## Install the local preview
+## Downloadable preview candidate
 
-Build tools: Xcode 27 / Swift 6.4. Runtime: Python 3.9+ for the session transport,
-zsh, and a supported Apple Silicon Mac with Apple Intelligence ready. Generation
-uses the existing [AppleFM Swift library](https://github.com/StoneHub/apple-fm-swift)
-at revision `5b937241b0236f892af28588e75a78dd557acf21`; it does not call `/usr/bin/fm`
-or use a cloud fallback. The shared library itself is unchanged by this project.
+Version **0.3.0-preview.1** is prepared locally; it is **not published**. The latest
+public 0.1.0 release is the older autocomplete prototype, not this experience.
+
+Runtime requirements: **macOS 26 or later**, **Apple Silicon**, native execution
+(not Rosetta), zsh, and Apple Intelligence enabled with its model downloaded.
+**No Xcode, developer tools, Python installation, Jot, or paid API account is
+required by users.** A private CPython runtime is included in this package.
+
+After publication, the normal workflow will be:
+
+1. Download the preview disk image and open it.
+2. Open **Install.command** to start the Terminal setup wizard.
+3. Review the managed shell changes and enable setup.
+4. Open a new Terminal tab and type `ask "How can I list attached disks?"`.
+5. Review the proposal, press Tab to insert it, then Enter to run it.
+
+For local candidate review, the same wizard is available in the staged folder:
 
 ```sh
-./scripts/build-install.sh
+./build/package/Install.command
+# Or install the exact archive with its checksum:
+sh dist/install.sh --archive dist/apple-fm-terminal.tar.gz --checksums dist/SHA256SUMS
 ```
+
+The current local candidate has not completed Developer ID signing and
+notarization. It must complete those steps before public distribution; the
+release procedure is in [docs/preview-release.md](docs/preview-release.md).
+The installer checks hardware and OS support before unpacking and checks model
+readiness before changing shell files. If Apple Intelligence is not ready, finish
+setup in System Settings and run `apple-fm-terminal setup` again. Uninstall also
+works when shell setup was cancelled or model readiness prevented activation.
 
 The install wizard previews and confirms the managed shell changes. `--yes`
 applies that displayed setup without prompting. It installs the package under
@@ -74,7 +96,7 @@ an ordinary shell without capture or help.
 
 ## Context and privacy
 
-Each open assisted shell has one lightweight Python controller, a local socket,
+Each open assisted shell has one Python controller using the private bundled runtime, a local socket,
 and its normal zsh. The Swift model helper runs only while you explicitly ask.
 It uses the AppleFM library's typed availability and structured-generation calls.
 Deadlines, one-request concurrency, prompts and command validation belong here
@@ -116,17 +138,28 @@ Native testing repaired `sw_vers -product` using captured usage output, inserted
 
 ## Development and packaging
 
+Build hosts need Xcode 27 / Swift 6.4 and Python 3.9+. These are developer
+requirements only. Generation uses the existing
+[AppleFM Swift library](https://github.com/StoneHub/apple-fm-swift) pinned to
+`5b937241b0236f892af28588e75a78dd557acf21`, with no `/usr/bin/fm` or cloud fallback.
+
 ```sh
 ./scripts/build-install.sh --build-only
 PYTHONDONTWRITEBYTECODE=1 python3 tests/check.py
-./package-release.sh
+python3 -B tests/packaging.py
+./scripts/prepare-preview.sh
+python3 -B tests/preview.py
 ```
 
-`build/` contains disposable build/package outputs; `dist/` contains local archives
-and checksums. The archive installs through `install.sh --archive PATH --checksums
-PATH`. Public release, notarized distribution and a package-manager formula are
-separate work; the latest public archive may still contain legacy autocomplete.
-Do not use that old archive to install this preview.
+`build/` holds disposable compiler/staging/download outputs. `dist/` holds the
+reviewable disk image, archives, installer and SHA256SUMS. The private runtime is
+pinned and checksum-verified from
+[python-build-standalone](https://github.com/astral-sh/python-build-standalone/releases/tag/20261013).
+Its interpreter, standard library, dependency license texts and provenance ship
+inside `runtime/`. It adds no system-wide Python, pip commands or PATH entries.
+Build-time downloads are not needed during local archive/disk image installation.
+The candidate is approximately 22 MB as a tar archive, 29 MB as a disk image and
+58 MB installed. Sizes vary with builds and signing.
 
 The legacy suffix plugin remains in `apple-fm.zsh` for existing source consumers;
 the wizard removes only its recognized old managed block during migration and

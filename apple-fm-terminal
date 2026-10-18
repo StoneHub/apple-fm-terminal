@@ -1,6 +1,11 @@
-#!/usr/bin/env python3
-"""Management entry point; the installer pins the interpreter for shell startup."""
-from pathlib import Path
-import runpy
-
-runpy.run_path(str(Path(__file__).resolve().parent / "scripts" / "management.py"), run_name="__main__")
+#!/bin/sh
+set -eu
+# Follow the installer-owned CLI symlink without requiring Python or readlink -f.
+program=$0
+while [ -L "$program" ]; do
+  parent=$(CDPATH= cd -- "$(dirname -- "$program")" && pwd)
+  program=$(readlink "$program")
+  case "$program" in /*) ;; *) program="$parent/$program";; esac
+done
+root=$(CDPATH= cd -- "$(dirname -- "$program")" && pwd)
+exec "$root/runtime/bin/python3" -I -B "$root/scripts/management.py" "$@"

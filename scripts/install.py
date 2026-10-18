@@ -61,7 +61,9 @@ def main():
     link.parent.mkdir(parents=True, exist_ok=True)
     if not link.is_symlink(): link.symlink_to(target/"apple-fm-terminal")
     print("Installed package:", target, flush=True)
-    command = [sys.executable, str(target/"scripts/management.py"), "setup"]
+    interpreter = target/"runtime/bin/python3"
+    if not interpreter.is_file(): interpreter = Path(sys.executable)  # source/test fixtures
+    command = [str(interpreter), "-I", "-B", str(target/"scripts/management.py"), "setup"]
     if yes: command.append("--yes")
     return subprocess.call(command)
 

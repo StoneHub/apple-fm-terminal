@@ -50,7 +50,7 @@ def atomic(path, data, mode=None):
 
 
 def blocks():
-    python = shlex.quote(sys.executable)
+    python = shlex.quote(str(ROOT/"runtime/bin/python3") if (ROOT/"runtime/bin/python3").is_file() else sys.executable)
     session = shlex.quote(str(ROOT / "terminal-session"))
     bridge = shlex.quote(str(ROOT / "shell" / "help.zsh"))
     helper = shlex.quote(str(ROOT / "apple-fm-terminal-model"))
@@ -60,7 +60,7 @@ def blocks():
   if [[ -x {python} && -r {session} && -x {helper} ]]; then
     typeset -a _apple_fm_login_args=()
     [[ -o login ]] && _apple_fm_login_args=(--login)
-    {python} {session} "${{_apple_fm_login_args[@]}}"
+    {python} -I -B {session} "${{_apple_fm_login_args[@]}}"
     _apple_fm_session_status=$?
     if (( _apple_fm_session_status != 125 )); then
       builtin exit $_apple_fm_session_status
@@ -84,6 +84,15 @@ def load_state():
 def setup(args):
     if not (ROOT / "apple-fm-terminal-model").is_file():
         raise ValueError("Build/install the Swift model helper before running setup.")
+    if os.uname().machine != "arm64":
+        raise ValueError("This preview requires an Apple Silicon Mac running natively (not under Rosetta).")
+    readiness = subprocess.run([str(ROOT/"apple-fm-terminal-model"), "--availability"], capture_output=True, text=True, timeout=8)
+    try:
+        available = json.loads(readiness.stdout).get("availability")
+    except ValueError:
+        available = "unknown"
+    if available != "available":
+        raise ValueError("Apple Intelligence is not ready (" + str(available) + "). Enable it in System Settings and finish the model download, then run setup again. Shell files were not changed.")
     home = Path.home()
     config = Path(args.config_dir or os.environ.get("ZDOTDIR", str(home))).expanduser().resolve()
     bootstrap_dir = Path(os.environ.get("ZDOTDIR", str(home))).expanduser().resolve()
@@ -152,7 +161,7 @@ def setup(args):
 
 def remove(args):
     state = load_state()
-    if not state["files"]:
+    if not state["files"] and args.command != "uninstall":
         print("No managed shell setup found.")
         return
     changes = []
@@ -241,6 +250,6 @@ def main():
 if __name__ == "__main__":
     try:
         main()
-    except (ValueError, OSError, EOFError, KeyboardInterrupt) as error:
+    except (ValueError, OSError, EOFError, KeyboardInterrupt, subprocess.TimeoutExpired) as error:
         print("Apple FM:", str(error) or "Setup cancelled.", file=sys.stderr)
         sys.exit(1)
