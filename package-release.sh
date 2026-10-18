@@ -8,8 +8,10 @@ dist_dir=${1:-"$repo_dir/dist"}
 mkdir -p "$dist_dir"
 tmp_dir=$(mktemp -d "${TMPDIR:-/tmp}/apple-fm-package.XXXXXX")
 trap 'rm -rf "$tmp_dir"' EXIT HUP INT TERM
-cp -R build/package "$tmp_dir/apple-fm-terminal-$version"
-tar -czf "$dist_dir/apple-fm-terminal-$version.tar.gz" -C "$tmp_dir" "apple-fm-terminal-$version"
+COPYFILE_DISABLE=1 cp -R build/package "$tmp_dir/apple-fm-terminal-$version"
+# BSD tar otherwise turns macOS extended attributes into AppleDouble entries.
+# Exclude existing sidecars too, including debris in an older staging folder.
+COPYFILE_DISABLE=1 tar --exclude '._*' --exclude '.DS_Store' -czf "$dist_dir/apple-fm-terminal-$version.tar.gz" -C "$tmp_dir" "apple-fm-terminal-$version"
 cp "$dist_dir/apple-fm-terminal-$version.tar.gz" "$dist_dir/apple-fm-terminal.tar.gz"
 cp install.sh "$dist_dir/install.sh"
 (cd "$dist_dir" && shasum -a 256 "apple-fm-terminal-$version.tar.gz" apple-fm-terminal.tar.gz install.sh > SHA256SUMS)

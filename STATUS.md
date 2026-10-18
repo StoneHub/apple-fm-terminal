@@ -48,3 +48,21 @@ Cleanup disposition: stop all task-created sessions and remove task-owned build/
 dist/, test directories and Python cache files after the installed readback. Keep
 only source, the installed payload/private setup backups, and the historical
 prototype branch. Public release and Homebrew publication remain separate.
+
+## Packaging cleanup verified October 18, 2026
+
+- Release archives suppress macOS AppleDouble generation and exclude existing
+  `._*` and `.DS_Store` entries. Directory installs also filter these entries.
+- Upgrades remove genuine AppleDouble sidecars only for package-owned paths;
+  unrelated files and similarly named ordinary text files are preserved.
+- `python3 tests/packaging.py` passed on macOS: real extended attributes,
+  archive creation/extraction, dirty directory installs, upgrade cleanup,
+  payload/inventory checks and unrelated-file preservation. Shell syntax passed.
+- Existing installed metadata debris was removed and the installer updated;
+  shell settings and running/model behavior were unchanged. No Swift rebuild
+  was needed for this packaging-only change.
+- Test when using the next package: install/update normally; no `._*` files
+  should appear in the installed payload, and normal shell startup should work.
+
+Cleanup: packaging tests remove their isolated homes, archives and staging
+folders. No build/dist outputs, temporary processes or test installs retained.
