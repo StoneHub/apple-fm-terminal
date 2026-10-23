@@ -234,14 +234,42 @@ def doctor():
     print("Privacy: session context stays in memory; no prompt/answer logs; no cloud fallback.")
 
 
+def browser(args):
+    """Explicit optional integration. No shell context, setup changes, or command execution."""
+    for label in ("adapter", "node", "server"):
+        value = getattr(args, label)
+        if not value or not Path(value).is_absolute() or not Path(value).is_file():
+            raise ValueError("browser requires an explicit absolute --" + label + " file path. Build the optional Safari Agent Apple FM adapter first.")
+    if not os.access(args.adapter, os.X_OK) or not os.access(args.node, os.X_OK):
+        raise ValueError("The optional adapter and Node paths must be executable.")
+    if not 1 <= args.wait_for_tab <= 120:
+        raise ValueError("--wait-for-tab must be 1–120 seconds.")
+    if sum([bool(args.prompt), args.check_bridge, args.check_model]) != 1:
+        raise ValueError("browser requires exactly one of --prompt, --check-bridge, or --check-model.")
+    command = [args.adapter, "--node", args.node, "--server", args.server]
+    if args.check_bridge: command.append("--check-bridge")
+    elif args.check_model: command.append("--check-model")
+    else: command.extend(["--prompt", args.prompt, "--wait-for-tab", str(args.wait_for_tab)])
+    # No shell interpolation and no captured output: private pairing token stays in this terminal.
+    raise SystemExit(subprocess.run(command, check=False).returncode)
+
+
 def main():
     parser = argparse.ArgumentParser(description="Apple FM Terminal setup and health")
     parser.add_argument("--version", action="version", version=(ROOT/"VERSION").read_text().strip())
-    parser.add_argument("command", nargs="?", default="doctor", choices=["setup", "doctor", "disable", "uninstall", "version"])
+    parser.add_argument("command", nargs="?", default="doctor", choices=["setup", "doctor", "disable", "uninstall", "version", "browser"])
     parser.add_argument("--yes", action="store_true", help="apply the displayed managed changes without prompting")
     parser.add_argument("--config-dir", help="directory containing your active .zshrc (custom ZDOTDIR)")
+    parser.add_argument("--adapter", help="absolute path to optional safari-apple-fm executable (browser only)")
+    parser.add_argument("--server", help="absolute path to Safari Agent src/server.mjs (browser only)")
+    parser.add_argument("--node", help="absolute Node.js executable path (browser only)")
+    parser.add_argument("--prompt", help="explicit read-only browser question; never receives shell history")
+    parser.add_argument("--check-bridge", action="store_true", help="check optional browser MCP without model inference")
+    parser.add_argument("--check-model", action="store_true", help="explicitly test model list_tabs invocation; suppress answer")
+    parser.add_argument("--wait-for-tab", type=int, default=120, help="browser grant wait, 1–120 seconds")
     args = parser.parse_args()
-    if args.command == "setup": setup(args)
+    if args.command == "browser": browser(args)
+    elif args.command == "setup": setup(args)
     elif args.command in ("disable", "uninstall"): remove(args)
     elif args.command == "doctor": doctor()
     else: print((ROOT/"VERSION").read_text().strip())

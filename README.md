@@ -124,6 +124,20 @@ Command output remains attached to a real TTY; it is not redirected through tee.
 On a supported remote Mac, setup belongs on that Mac; SSH transport still needs
 an actual device trial.
 
+## Optional read-only Safari questions
+
+The separate [Safari Agent Apple FM adapter](https://github.com/StoneHub/safari-agent/tree/main/clients/apple-fm) can answer explicit questions using tabs you grant in its Safari extension. It is an optional developer integration; it is not bundled or installed by Terminal setup. Build the adapter separately with Xcode and supply its executable, Node.js, and Safari Agent server paths explicitly:
+
+```sh
+apple-fm-terminal browser --adapter /path/to/safari-apple-fm \
+  --node /path/to/node --server /path/to/safari-agent/src/server.mjs \
+  --prompt 'Summarize the test page I grant to this session'
+```
+
+Pair the private bridge token shown in that terminal and grant only the intended tab. The adapter waits up to 120 seconds for a grant and exposes only `list_tabs` and `read_page`. Keep pairing tokens and page contents out of reports. Use `--check-bridge` instead of `--prompt` for a transport-only check, or `--check-model` to explicitly test on-device model invocation of `list_tabs` without reading a page; that check suppresses generated text. An already running broker on the same port must be stopped by its owner or use an explicitly selected free `SAFARI_AGENT_PORT` for this session.
+
+This subcommand passes only your explicit question, never captured shell context. Ordinary `ask`, completion, Tab insertion and separate Enter execution retain their existing behavior. There are no browser mutation tools and no automatic browser requests. No global MCP configuration or browser permissions are changed by the launcher. From a source checkout, use `python3 scripts/management.py browser ...` before packaging an update.
+
 ## Model quality
 
 A structured answer is not proof of command correctness. The helper checks that
