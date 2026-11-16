@@ -178,6 +178,9 @@ The candidate is approximately 22 MB as a tar archive, 29 MB as a disk image and
 The legacy suffix plugin remains in `apple-fm.zsh` for existing source consumers;
 the wizard removes only its recognized old managed block during migration and
 installs request-only Terminal Ask. It does not enable both Tab handlers.
+In the legacy plugin, `APPLE_FM_TRIGGER` is captured when enabled: to change the
+request key, disable it, set the new trigger, then enable it again. Disabling or
+removing restores the captured binding even if the setting changed meanwhile.
 
 ## Apple FM and Safari projects
 
