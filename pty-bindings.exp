@@ -9,7 +9,7 @@ expect_after {
   eof {error "Shell exited before the PTY binding assertions finished"}
 }
 expect -re {[%#] }
-send -- "PS1='BINDINGS>'; setopt nounset ksharrays; bindkey -e; APPLE_FM_COMMAND='$here/fixture-fm'; APPLE_FM_DEBOUNCE=60; source '$here/apple-fm.zsh'\r"
+send -- "PS1='BINDINGS>'; setopt nounset ksharrays; bindkey -e; APPLE_FM_COMMAND='$here/fixture-fm'; APPLE_FM_DEBOUNCE=60; APPLE_FM_SOURCE='$here/apple-fm.zsh'; source \"\$APPLE_FM_SOURCE\"\r"
 expect "BINDINGS>"
 send -- {function binding-state { emulate -L zsh; local map key; for map in emacs viins; do for key in '^I' '^[' '^X^F' '^X^G' '^X^H'; do bindkey -M "$map" "$key"; done; done }; function proof-buffer { zle -M -- "STATE:<${BUFFER}>:<${_APPLE_FM_SUGGESTION}>:<${_APPLE_FM_LAST_OUTCOME}>" }; zle -N proof-buffer; bindkey -M emacs '^X^B' proof-buffer; saved=$(binding-state); apple-fm-enable; APPLE_FM_TRIGGER='^X^G'; apple-fm-enable; print SETUP_DONE}
 send -- "\r"
@@ -52,6 +52,11 @@ expect "\r\nREMOVE_RESTORED\r\n"
 expect "\r\nFUNCTIONS_REMOVED\r\n"
 expect "OPTIONS_AFTER_REMOVE\r\n"
 expect "BINDINGS>"
+# Re-sourcing over an enable from a version without the capture still restores the bound key.
+send -- {source "$APPLE_FM_SOURCE"; apple-fm-enable; _APPLE_FM_BOUND_TRIGGER=''; apple-fm-disable; [[ "$saved" == "$(binding-state)" ]] && print LEGACY_ENABLE_RESTORED; apple-fm-remove}
+send -- "\r"
+expect "\r\nLEGACY_ENABLE_RESTORED\r\n"
+expect "BINDINGS>"
 send -- "exit\r"
 expect eof
-puts "PASS: trigger changes, idempotent enable, both keymaps restored, re-enable uses new trigger, Tab insertion without execution, removal and caller options"
+puts "PASS: trigger changes, idempotent enable, both keymaps restored, re-enable uses new trigger, Tab insertion without execution, removal, caller options and an enable from before the capture"

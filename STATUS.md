@@ -99,7 +99,3 @@ Cleanup owner: Terminal task. Remove build/compiler/download/staging/test output
 after final readback. Keep only final dist/ candidates/checksums for Monroe's
 review until replaced or publication is cancelled. No temporary test runtime or
 service should survive this task.
-
-## Legacy plugin: request-key restoration - November 16, 2026
-
-Changing `APPLE_FM_TRIGGER` while the legacy `apple-fm.zsh` plugin was enabled left `fm-suggest` bound to the old key and restored its original binding onto the new key. The plugin now captures the request key for each enable/disable cycle; disable and remove restore the key actually bound. `./pty-bindings.exp` fails on the previous code and passes on the fix (zsh 5.9, Expect 5.45.4, fake model). Terminal Ask is unaffected. Issue #12's mid-line corruption report is not addressed by this change.
