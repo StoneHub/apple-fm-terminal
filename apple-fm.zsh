@@ -207,7 +207,7 @@ apple-fm-disable() {
   add-zle-hook-widget -d line-pre-redraw _apple_fm_pre_redraw 2>/dev/null; add-zle-hook-widget -d line-init _apple_fm_line_init 2>/dev/null; add-zle-hook-widget -d line-finish _apple_fm_line_finish 2>/dev/null
   bindkey -M emacs '^I' "${_APPLE_FM_TAB_EMACS:-expand-or-complete}"; bindkey -M viins '^I' "${_APPLE_FM_TAB_VIINS:-expand-or-complete}"
   bindkey -M emacs '^[' "${_APPLE_FM_ESC_EMACS:-undefined-key}"; bindkey -M viins '^[' "${_APPLE_FM_ESC_VIINS:-undefined-key}"
-  # An enable from a version that predates the capture leaves it empty; that version bound the current setting.
+  # An enable from a version without the capture leaves it empty; assume the setting is unchanged since then.
   local key=${_APPLE_FM_BOUND_TRIGGER:-$APPLE_FM_TRIGGER}
   bindkey -M emacs "$key" "${_APPLE_FM_TRIGGER_EMACS:-undefined-key}"; bindkey -M viins "$key" "${_APPLE_FM_TRIGGER_VIINS:-undefined-key}"; _APPLE_FM_BOUND_TRIGGER=''; _APPLE_FM_ENABLED=0
 }
