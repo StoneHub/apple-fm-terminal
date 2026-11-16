@@ -179,6 +179,8 @@ The legacy suffix plugin remains in `apple-fm.zsh` for existing source consumers
 the wizard removes only its recognized old managed block during migration and
 installs request-only Terminal Ask. It does not enable both Tab handlers.
 
+The legacy plugin captures `APPLE_FM_TRIGGER` when enabled. To change its request key, disable it, set the new trigger, then enable it again; disabling or removing restores the captured key even if the setting changed meanwhile. `./pty-bindings.exp` checks this in both keymaps against `fixture-fm`.
+
 ## Apple FM and Safari projects
 
 These projects work independently and share optional local integrations:

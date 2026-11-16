@@ -3,6 +3,7 @@ zmodload zsh/zselect zsh/system
 typeset -g APPLE_FM_DEBOUNCE=${APPLE_FM_DEBOUNCE:-0.35} APPLE_FM_TIMEOUT=${APPLE_FM_TIMEOUT:-15}
 typeset -g APPLE_FM_CONTEXT_CAP=${APPLE_FM_CONTEXT_CAP:-6000} APPLE_FM_TRIGGER=${APPLE_FM_TRIGGER:-'^X^F'}
 typeset -g APPLE_FM_COMMAND=${APPLE_FM_COMMAND:-/usr/bin/fm} _APPLE_FM_ENABLED=${_APPLE_FM_ENABLED:-0}
+typeset -g _APPLE_FM_BOUND_TRIGGER=${_APPLE_FM_BOUND_TRIGGER:-}
 typeset -g _APPLE_FM_GENERATION=${_APPLE_FM_GENERATION:-0} _APPLE_FM_OBSERVED=${_APPLE_FM_OBSERVED:-}
 typeset -g _APPLE_FM_DISMISSED=${_APPLE_FM_DISMISSED:-} _APPLE_FM_REQUEST_STATE=${_APPLE_FM_REQUEST_STATE:-}
 typeset -g _APPLE_FM_REQUEST_GEN=${_APPLE_FM_REQUEST_GEN:--1} _APPLE_FM_EXPLICIT=${_APPLE_FM_EXPLICIT:-0}
@@ -187,11 +188,13 @@ _apple_fm_binding() { emulate -L zsh; local b=$(bindkey -M "$1" "$2"); print -r 
 apple-fm-enable() {
   emulate -L zsh
   (( _APPLE_FM_ENABLED )) && return
+  # Configuration may change while active; restore the key bound by this enable, not the next setting.
+  _APPLE_FM_BOUND_TRIGGER=$APPLE_FM_TRIGGER
   _APPLE_FM_TAB_EMACS=$(_apple_fm_binding emacs '^I'); _APPLE_FM_TAB_VIINS=$(_apple_fm_binding viins '^I')
   _APPLE_FM_ESC_EMACS=$(_apple_fm_binding emacs '^['); _APPLE_FM_ESC_VIINS=$(_apple_fm_binding viins '^[')
-  _APPLE_FM_TRIGGER_EMACS=$(_apple_fm_binding emacs "$APPLE_FM_TRIGGER"); _APPLE_FM_TRIGGER_VIINS=$(_apple_fm_binding viins "$APPLE_FM_TRIGGER")
+  _APPLE_FM_TRIGGER_EMACS=$(_apple_fm_binding emacs "$_APPLE_FM_BOUND_TRIGGER"); _APPLE_FM_TRIGGER_VIINS=$(_apple_fm_binding viins "$_APPLE_FM_BOUND_TRIGGER")
   bindkey -M emacs '^I' apple-fm-tab; bindkey -M viins '^I' apple-fm-tab; bindkey -M emacs '^[' apple-fm-dismiss; bindkey -M viins '^[' apple-fm-dismiss
-  bindkey -M emacs "$APPLE_FM_TRIGGER" fm-suggest; bindkey -M viins "$APPLE_FM_TRIGGER" fm-suggest
+  bindkey -M emacs "$_APPLE_FM_BOUND_TRIGGER" fm-suggest; bindkey -M viins "$_APPLE_FM_BOUND_TRIGGER" fm-suggest
   autoload -Uz add-zle-hook-widget
   add-zle-hook-widget -d line-pre-redraw _apple_fm_pre_redraw 2>/dev/null; add-zle-hook-widget line-pre-redraw _apple_fm_pre_redraw
   add-zle-hook-widget -d line-init _apple_fm_line_init 2>/dev/null; add-zle-hook-widget line-init _apple_fm_line_init
@@ -204,7 +207,7 @@ apple-fm-disable() {
   add-zle-hook-widget -d line-pre-redraw _apple_fm_pre_redraw 2>/dev/null; add-zle-hook-widget -d line-init _apple_fm_line_init 2>/dev/null; add-zle-hook-widget -d line-finish _apple_fm_line_finish 2>/dev/null
   bindkey -M emacs '^I' "${_APPLE_FM_TAB_EMACS:-expand-or-complete}"; bindkey -M viins '^I' "${_APPLE_FM_TAB_VIINS:-expand-or-complete}"
   bindkey -M emacs '^[' "${_APPLE_FM_ESC_EMACS:-undefined-key}"; bindkey -M viins '^[' "${_APPLE_FM_ESC_VIINS:-undefined-key}"
-  bindkey -M emacs "$APPLE_FM_TRIGGER" "${_APPLE_FM_TRIGGER_EMACS:-undefined-key}"; bindkey -M viins "$APPLE_FM_TRIGGER" "${_APPLE_FM_TRIGGER_VIINS:-undefined-key}"; _APPLE_FM_ENABLED=0
+  bindkey -M emacs "$_APPLE_FM_BOUND_TRIGGER" "${_APPLE_FM_TRIGGER_EMACS:-undefined-key}"; bindkey -M viins "$_APPLE_FM_BOUND_TRIGGER" "${_APPLE_FM_TRIGGER_VIINS:-undefined-key}"; _APPLE_FM_BOUND_TRIGGER=''; _APPLE_FM_ENABLED=0
 }
 # -m matches function names; a bare _apple_fm_* would be a filename glob and fail with no matches.
 apple-fm-remove() { emulate -L zsh; apple-fm-disable; unfunction apple-fm-enable apple-fm-disable apple-fm-remove fm-suggest 2>/dev/null; unfunction -m '_apple_fm_*'; }
